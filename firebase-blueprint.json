@@ -1,0 +1,172 @@
+{
+  "entities": {
+    "ExchangeConfig": {
+      "title": "ExchangeConfig",
+      "description": "Live exchange rates, gateway fees, limits, and merchant payment targets for Alevini.",
+      "type": "object",
+      "properties": {
+        "usdToHtgBuy": { "type": "number", "description": "HTG rate when client receives HTG" },
+        "usdToHtgSell": { "type": "number", "description": "HTG rate when client sends HTG" },
+        "eurToUsd": { "type": "number", "description": "EUR to USD conversion factor" },
+        "feeNowpayments": { "type": "number", "description": "NOWPayments fee percentage" },
+        "feeBinance": { "type": "number", "description": "Binance Pay fee percentage" },
+        "feeMeru": { "type": "number", "description": "Meru fee percentage" },
+        "feeMoncash": { "type": "number", "description": "MonCash fee percentage" },
+        "feeNatcash": { "type": "number", "description": "NatCash fee percentage" },
+        "minOrderUsd": { "type": "number", "description": "Minimum order value in USD" },
+        "maxOrderUsd": { "type": "number", "description": "Maximum order value in USD" },
+        "moncashMerchant": { "type": "string", "description": "Official MonCash merchant phone number" },
+        "natcashMerchant": { "type": "string", "description": "Official NatCash merchant phone number" },
+        "binancePayId": { "type": "string", "description": "Official Binance Pay UID" },
+        "meruTag": { "type": "string", "description": "Official Meru Tag" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update" },
+        "updatedBy": { "type": "string", "description": "Admin UID who updated the config" }
+      },
+      "required": [
+        "usdToHtgBuy", "usdToHtgSell", "eurToUsd",
+        "feeNowpayments", "feeBinance", "feeMeru", "feeMoncash", "feeNatcash",
+        "minOrderUsd", "maxOrderUsd",
+        "moncashMerchant", "natcashMerchant", "binancePayId", "meruTag",
+        "updatedAt", "updatedBy"
+      ]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile with phone number, 18+ verification, and admin block flag.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email from Google Sign-In" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "phoneNumber": { "type": "string", "description": "Haitian mobile money phone number" },
+        "isAgeVerified": { "type": "boolean", "description": "User confirmed 18+ age requirement" },
+        "isBlocked": { "type": "boolean", "description": "Whether account is blocked by admin" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email", "displayName", "phoneNumber", "isAgeVerified", "isBlocked", "createdAt", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Currency exchange order created by a user and processed by Alevini admin.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID" },
+        "userEmail": { "type": "string", "description": "Owner email for admin review" },
+        "orderCode": { "type": "string", "description": "Human-readable code e.g. ALV-123456" },
+        "sendMethod": { "type": "string", "enum": ["nowpayments", "binance", "meru", "moncash", "natcash"] },
+        "receiveMethod": { "type": "string", "enum": ["nowpayments", "binance", "meru", "moncash", "natcash"] },
+        "sendCurrency": { "type": "string", "enum": ["USD", "HTG", "EUR"] },
+        "receiveCurrency": { "type": "string", "enum": ["USD", "HTG", "EUR"] },
+        "cryptoCoin": { "type": "string", "description": "Optional crypto ticker e.g. usdttrc20" },
+        "sendAmount": { "type": "number" },
+        "receiveAmount": { "type": "number" },
+        "amountUsd": { "type": "number" },
+        "amountHtg": { "type": "number" },
+        "amountEur": { "type": "number" },
+        "baseRate": { "type": "number" },
+        "feePercent": { "type": "number" },
+        "effectiveRate": { "type": "number" },
+        "destAccount": { "type": "string" },
+        "paymentInstruction": { "type": "string" },
+        "payAddress": { "type": "string" },
+        "payCryptoAmount": { "type": "number" },
+        "externalTxRef": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "SUBMITTED", "PAID_IN", "COMPLETED", "UNDERPAID", "REJECTED", "EXPIRED"] },
+        "adminNote": { "type": "string" },
+        "expiresAtMillis": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "userEmail", "orderCode",
+        "sendMethod", "receiveMethod", "sendCurrency", "receiveCurrency", "cryptoCoin",
+        "sendAmount", "receiveAmount", "amountUsd", "amountHtg", "amountEur",
+        "baseRate", "feePercent", "effectiveRate", "destAccount", "paymentInstruction",
+        "payAddress", "payCryptoAmount", "externalTxRef", "status", "adminNote",
+        "expiresAtMillis", "createdAt", "updatedAt"
+      ]
+    },
+    "TxRefClaim": {
+      "title": "TxRefClaim",
+      "description": "Unique anti-fraud registry of submitted external transaction references.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "orderId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "orderId", "createdAt"]
+    },
+    "LedgerEntry": {
+      "title": "LedgerEntry",
+      "description": "Append-only accounting ledger entry created when admin completes an order.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "orderCode": { "type": "string" },
+        "accountName": { "type": "string" },
+        "entryType": { "type": "string", "enum": ["CREDIT", "DEBIT"] },
+        "currency": { "type": "string", "enum": ["USD", "HTG", "EUR"] },
+        "amount": { "type": "number" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "orderCode", "accountName", "entryType", "currency", "amount", "note", "createdAt"]
+    },
+    "AdminMarker": {
+      "title": "AdminMarker",
+      "description": "Admin role marker document keyed by UID.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" }
+      }
+    },
+    "AdminNotification": {
+      "title": "AdminNotification",
+      "description": "Push/in-app notification sent from Back-Office Admin to all users or a specific user.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "targetUserId": { "type": "string", "description": "'ALL' or specific user UID" },
+        "targetLabel": { "type": "string", "description": "Display label of target audience" },
+        "isAlert": { "type": "boolean" },
+        "sentBy": { "type": "string", "description": "Admin UID" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "targetUserId", "targetLabel", "isAlert", "sentBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/exchange_config/{configId}": {
+      "schema": { "$ref": "#/entities/ExchangeConfig" },
+      "description": "Global Alevini rates and merchant numbers"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles isolated by userId"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Exchange orders owned by users and managed by admin"
+    },
+    "/tx_refs/{txRefId}": {
+      "schema": { "$ref": "#/entities/TxRefClaim" },
+      "description": "Unique transaction reference claims preventing duplicate reuse"
+    },
+    "/ledger_entries/{entryId}": {
+      "schema": { "$ref": "#/entities/LedgerEntry" },
+      "description": "Admin-only accounting ledger entries"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminMarker" },
+      "description": "Read-only admin role marker documents"
+    },
+    "/admin_notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/AdminNotification" },
+      "description": "Admin-broadcast or user-targeted notifications"
+    }
+  }
+}

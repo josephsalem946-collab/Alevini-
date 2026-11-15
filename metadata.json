@@ -1,0 +1,6 @@
+{
+  "name": "Alevini",
+  "description": "Plateforme d'échange multi-devises et passerelles locales (USD, HTG, EUR, MonCash, NatCash, Binance, Meru, NOWPayments) avec suivi en temps réel et panneau d'administration sécurisé.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

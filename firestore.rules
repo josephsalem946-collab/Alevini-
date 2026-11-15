@@ -1,0 +1,278 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'josephsalem946@gmail.com' && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidMethod(m) {
+      return m in ['nowpayments', 'binance', 'meru', 'moncash', 'natcash'];
+    }
+
+    function isValidCurrency(c) {
+      return c in ['USD', 'HTG', 'EUR'];
+    }
+
+    function isValidStatus(s) {
+      return s in ['PENDING', 'SUBMITTED', 'PAID_IN', 'COMPLETED', 'UNDERPAID', 'REJECTED', 'EXPIRED'];
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidExchangeConfig(data) {
+      return data.usdToHtgBuy is number && data.usdToHtgBuy > 0 && data.usdToHtgBuy < 10000 &&
+             data.usdToHtgSell is number && data.usdToHtgSell > 0 && data.usdToHtgSell < 10000 &&
+             data.eurToUsd is number && data.eurToUsd > 0 && data.eurToUsd < 100 &&
+             data.feeNowpayments is number && data.feeNowpayments >= 0 && data.feeNowpayments <= 50 &&
+             data.feeBinance is number && data.feeBinance >= 0 && data.feeBinance <= 50 &&
+             data.feeMeru is number && data.feeMeru >= 0 && data.feeMeru <= 50 &&
+             data.feeMoncash is number && data.feeMoncash >= 0 && data.feeMoncash <= 50 &&
+             data.feeNatcash is number && data.feeNatcash >= 0 && data.feeNatcash <= 50 &&
+             data.minOrderUsd is number && data.minOrderUsd > 0 && data.minOrderUsd <= 10000 &&
+             data.maxOrderUsd is number && data.maxOrderUsd >= data.minOrderUsd && data.maxOrderUsd <= 1000000 &&
+             data.moncashMerchant is string && data.moncashMerchant.size() >= 4 && data.moncashMerchant.size() <= 60 &&
+             data.natcashMerchant is string && data.natcashMerchant.size() >= 4 && data.natcashMerchant.size() <= 60 &&
+             data.binancePayId is string && data.binancePayId.size() >= 2 && data.binancePayId.size() <= 80 &&
+             data.meruTag is string && data.meruTag.size() >= 2 && data.meruTag.size() <= 80 &&
+             data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128 &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.displayName is string && data.displayName.size() <= 120 &&
+             data.phoneNumber is string && data.phoneNumber.size() <= 40 &&
+             data.isAgeVerified is bool &&
+             data.isBlocked is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidOrder(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userEmail is string && data.userEmail.size() <= 200 &&
+             data.orderCode is string && data.orderCode.size() >= 5 && data.orderCode.size() <= 32 &&
+             isValidMethod(data.sendMethod) &&
+             isValidMethod(data.receiveMethod) &&
+             data.sendMethod != data.receiveMethod &&
+             isValidCurrency(data.sendCurrency) &&
+             isValidCurrency(data.receiveCurrency) &&
+             data.cryptoCoin is string && data.cryptoCoin.size() <= 32 &&
+             data.sendAmount is number && data.sendAmount > 0 && data.sendAmount <= 100000000 &&
+             data.receiveAmount is number && data.receiveAmount > 0 && data.receiveAmount <= 100000000 &&
+             data.amountUsd is number && data.amountUsd > 0 && data.amountUsd <= 1000000 &&
+             data.amountHtg is number && data.amountHtg > 0 && data.amountHtg <= 100000000 &&
+             data.amountEur is number && data.amountEur > 0 && data.amountEur <= 1000000 &&
+             data.baseRate is number && data.baseRate > 0 &&
+             data.feePercent is number && data.feePercent >= 0 && data.feePercent <= 100 &&
+             data.effectiveRate is number && data.effectiveRate > 0 &&
+             data.destAccount is string && data.destAccount.size() >= 3 && data.destAccount.size() <= 160 &&
+             data.paymentInstruction is string && data.paymentInstruction.size() >= 3 && data.paymentInstruction.size() <= 300 &&
+             data.payAddress is string && data.payAddress.size() <= 200 &&
+             data.payCryptoAmount is number && data.payCryptoAmount >= 0 &&
+             data.externalTxRef is string && data.externalTxRef.size() <= 120 &&
+             isValidStatus(data.status) &&
+             data.adminNote is string && data.adminNote.size() <= 300 &&
+             data.expiresAtMillis is int && data.expiresAtMillis > 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time &&
+             (!('completedAt' in data) || data.completedAt == null || (data.completedAt is timestamp && data.completedAt <= request.time));
+    }
+
+    function isValidLedgerEntry(data) {
+      return data.orderId is string && data.orderId.size() >= 1 && data.orderId.size() <= 128 &&
+             data.orderCode is string && data.orderCode.size() >= 5 && data.orderCode.size() <= 32 &&
+             data.accountName is string && data.accountName.size() >= 3 && data.accountName.size() <= 64 &&
+             data.entryType in ['CREDIT', 'DEBIT'] &&
+             isValidCurrency(data.currency) &&
+             data.amount is number && data.amount > 0 &&
+             data.note is string && data.note.size() >= 1 && data.note.size() <= 200 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidAdminNotification(data) {
+      return data.title is string && data.title.size() >= 2 && data.title.size() <= 120 &&
+             data.message is string && data.message.size() >= 2 && data.message.size() <= 500 &&
+             data.targetUserId is string && data.targetUserId.size() >= 1 && data.targetUserId.size() <= 128 &&
+             data.targetLabel is string && data.targetLabel.size() >= 1 && data.targetLabel.size() <= 160 &&
+             data.isAlert is bool &&
+             data.sentBy is string && data.sentBy == request.auth.uid &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // 4. Collection Rules
+    match /exchange_config/{configId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn() &&
+                               isAdmin() &&
+                               isValidId(configId) &&
+                               incoming().keys().hasAll([
+                                 'usdToHtgBuy', 'usdToHtgSell', 'eurToUsd',
+                                 'feeNowpayments', 'feeBinance', 'feeMeru', 'feeMoncash', 'feeNatcash',
+                                 'minOrderUsd', 'maxOrderUsd',
+                                 'moncashMerchant', 'natcashMerchant', 'binancePayId', 'meruTag',
+                                 'updatedAt', 'updatedBy'
+                               ]) &&
+                               incoming().keys().hasOnly([
+                                 'usdToHtgBuy', 'usdToHtgSell', 'eurToUsd',
+                                 'feeNowpayments', 'feeBinance', 'feeMeru', 'feeMoncash', 'feeNatcash',
+                                 'minOrderUsd', 'maxOrderUsd',
+                                 'moncashMerchant', 'natcashMerchant', 'binancePayId', 'meruTag',
+                                 'updatedAt', 'updatedBy'
+                               ]) &&
+                               incoming().updatedBy == request.auth.uid &&
+                               isValidExchangeConfig(incoming());
+      allow delete: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().isBlocked == false &&
+                       incoming().keys().hasAll(['userId', 'email', 'displayName', 'phoneNumber', 'isAgeVerified', 'isBlocked', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'email', 'displayName', 'phoneNumber', 'isAgeVerified', 'isBlocked', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         isAdmin() ||
+                         (
+                           request.auth.uid == userId &&
+                           incoming().isBlocked == existing().isBlocked &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phoneNumber', 'isAgeVerified', 'updatedAt'])
+                         )
+                       );
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && isValidId(orderId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+                       isValidId(orderId) &&
+                       isValidOrder(incoming()) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'PENDING' &&
+                       incoming().externalTxRef == '' &&
+                       incoming().adminNote == '' &&
+                       (!('completedAt' in incoming()) || incoming().completedAt == null) &&
+                       incoming().keys().hasAll([
+                         'userId', 'userEmail', 'orderCode',
+                         'sendMethod', 'receiveMethod', 'sendCurrency', 'receiveCurrency', 'cryptoCoin',
+                         'sendAmount', 'receiveAmount', 'amountUsd', 'amountHtg', 'amountEur',
+                         'baseRate', 'feePercent', 'effectiveRate', 'destAccount', 'paymentInstruction',
+                         'payAddress', 'payCryptoAmount', 'externalTxRef', 'status', 'adminNote',
+                         'expiresAtMillis', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'userEmail', 'orderCode',
+                         'sendMethod', 'receiveMethod', 'sendCurrency', 'receiveCurrency', 'cryptoCoin',
+                         'sendAmount', 'receiveAmount', 'amountUsd', 'amountHtg', 'amountEur',
+                         'baseRate', 'feePercent', 'effectiveRate', 'destAccount', 'paymentInstruction',
+                         'payAddress', 'payCryptoAmount', 'externalTxRef', 'status', 'adminNote',
+                         'expiresAtMillis', 'createdAt', 'updatedAt', 'completedAt'
+                       ]) &&
+                       (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBlocked == false);
+      allow update: if isSignedIn() &&
+                       isValidId(orderId) &&
+                       isValidOrder(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().orderCode == existing().orderCode &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         isAdmin() ||
+                         (
+                           existing().userId == request.auth.uid &&
+                           existing().status == 'PENDING' &&
+                           incoming().status == 'SUBMITTED' &&
+                           incoming().externalTxRef.size() >= 4 &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['externalTxRef', 'status', 'updatedAt'])
+                         ) ||
+                         (
+                           existing().userId == request.auth.uid &&
+                           existing().status == 'PENDING' &&
+                           incoming().status == 'EXPIRED' &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+                         )
+                       );
+      allow delete: if isAdmin();
+    }
+
+    match /tx_refs/{txRefId} {
+      allow get: if isSignedIn() && isValidId(txRefId);
+      allow list: if false;
+      allow create: if isSignedIn() &&
+                       isValidId(txRefId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().orderId is string && incoming().orderId.size() >= 1 && incoming().orderId.size() <= 128 &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().keys().hasAll(['userId', 'orderId', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'orderId', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    match /ledger_entries/{entryId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidId(entryId) &&
+                       incoming().keys().hasAll(['orderId', 'orderCode', 'accountName', 'entryType', 'currency', 'amount', 'note', 'createdAt']) &&
+                       incoming().keys().hasOnly(['orderId', 'orderCode', 'accountName', 'entryType', 'currency', 'amount', 'note', 'createdAt']) &&
+                       isValidLedgerEntry(incoming());
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && request.auth.uid == adminId;
+      allow list, write: if false;
+    }
+
+    match /admin_notifications/{notificationId} {
+      allow get, list: if isSignedIn() && (
+        isAdmin() ||
+        existing().targetUserId == 'ALL' ||
+        existing().targetUserId == request.auth.uid
+      );
+      allow create: if isAdmin() &&
+                       isValidId(notificationId) &&
+                       incoming().keys().hasAll(['title', 'message', 'targetUserId', 'targetLabel', 'isAlert', 'sentBy', 'createdAt']) &&
+                       incoming().keys().hasOnly(['title', 'message', 'targetUserId', 'targetLabel', 'isAlert', 'sentBy', 'createdAt']) &&
+                       isValidAdminNotification(incoming());
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+  }
+}
