@@ -1,0 +1,1314 @@
+import React, { useState, useMemo } from 'react';
+import {
+  Menu,
+  Bell,
+  ShieldCheck,
+  TrendingUp,
+  AlertTriangle,
+  Briefcase,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Trash2,
+  Printer,
+  Wallet,
+  Calendar,
+  Info,
+  ArrowUpRight,
+  ArrowDownRight,
+  Lock,
+  UserCog,
+  User,
+  X,
+  Zap,
+  ChevronRight,
+  FileText
+} from 'lucide-react';
+
+// ============================================================================
+// DONNÉES ET CONFIGURATION DE BASE (ALEVINI / MCSE)
+// ============================================================================
+
+const GDS_AMOUNTS = [25000, 50000, 100000, 250000];
+const USD_AMOUNTS = [500, 1000, 2500, 5000];
+
+const DURATIONS = [
+  { id: '1m', label: '1 mois', months: 1 },
+  { id: '3m', label: '3 mois', months: 3 },
+  { id: '6m', label: '6 mois', months: 6 },
+  { id: '1y', label: '1 an', months: 12 },
+];
+
+// Taux mensuels de référence (basés sur 50 000 GDS)
+// Sans risque : 400 GDS / 50 000 GDS = 0.8% / mois
+// Moins de risque : > 500 GDS / 50 000 GDS (ex: 550 GDS = 1.1% / mois)
+// À risque : > 1 000 GDS / 50 000 GDS (ex: 1 150 GDS = 2.3% / mois)
+const CATEGORIES = {
+  sans_risque: {
+    id: 'sans_risque',
+    shortTitle: 'Sans risque',
+    title: 'Investissement sans risque',
+    badge: 'GARANTI • FIXE',
+    ratePer50k: 400,
+    monthlyRate: 0.008, // 0.8% par mois
+    rateLabel: '400 GDS / mois par tranche de 50 000 GDS (0,8 % / mois)',
+    terms:
+      "Après avoir effectué l'investissement, le client doit seulement attendre pour toucher son profit chaque mois, puis attendre le remboursement du capital initial à la fin de la période d'investissement.",
+  },
+  moins_risque: {
+    id: 'moins_risque',
+    shortTitle: 'Moins de risque',
+    title: 'Investissement à moins de risque',
+    badge: 'TRANSPARENT • MODÉRÉ',
+    ratePer50k: 550,
+    monthlyRate: 0.011, // > 500 GDS / 50k (~1.1% par mois)
+    rateLabel: 'Plus de 500 GDS / mois par tranche de 50 000 GDS (~1,1 % / mois)',
+    terms:
+      "Le client est informé dans quoi son argent est investi (Immobilier locatif MCSE, Commerce & Import-Export, Micro-crédit garanti). Il dispose d'informations transparentes montrant avec authenticité comment les profits augmentent ou diminuent.",
+    transparencyFeed: [
+      { sector: 'Immobilier locatif MCSE', trend: '+1.24%', positive: true, note: 'Taux d’occupation 98%' },
+      { sector: 'Commerce & Import-Export', trend: '+1.08%', positive: true, note: 'Rotation stocks régulière' },
+      { sector: 'Micro-crédit garanti', trend: '-0.12%', positive: false, note: 'Ajustement provision mensuelle' },
+    ],
+  },
+  a_risque: {
+    id: 'a_risque',
+    shortTitle: 'À risque',
+    title: 'Investissement à risque',
+    badge: 'HAUT RENDEMENT • CHOIX LIBRE',
+    ratePer50k: 1150,
+    monthlyRate: 0.023, // > 1000 GDS / 50k (~2.3% par mois)
+    rateLabel: 'Plus de 1 000 GDS / mois par tranche de 50 000 GDS (~2,3 % / mois)',
+    terms:
+      "Le client est au courant de l'investissement de ses fonds, dispose d'informations sur l'évolution des profits (hausse/baisse), et choisit lui-même dans quoi il souhaite investir.",
+    sectors: [
+      {
+        id: 'crypto_fx',
+        name: 'Trading Crypto & Devises',
+        performance: '+2.65% ce mois',
+        positive: true,
+        riskNote: 'Volatilité élevée sur paires USDT / HTG / BTC',
+      },
+      {
+        id: 'tech_mcse',
+        name: 'Tech & Applications MCSE',
+        performance: '+2.15% ce mois',
+        positive: true,
+        riskNote: 'Croissance des transactions digitales Alevini',
+      },
+      {
+        id: 'energie_log',
+        name: 'Énergie & Logistique',
+        performance: '-0.40% semaine dernière',
+        positive: false,
+        riskNote: 'Variation liée aux coûts d’approvisionnement',
+      },
+    ],
+  },
+};
+
+const PAYMENT_GATEWAYS = [
+  {
+    id: 'moncash',
+    name: 'Moncash online',
+    currency: 'GDS',
+    balance: 350000,
+    feePercent: 1.5,
+    color: 'bg-red-600',
+    shortCode: 'MC',
+  },
+  {
+    id: 'natcash',
+    name: 'Natcash online',
+    currency: 'GDS',
+    balance: 280000,
+    feePercent: 1.5,
+    color: 'bg-orange-500',
+    shortCode: 'NC',
+  },
+  {
+    id: 'binance',
+    name: 'Binance Pay',
+    currency: 'USD',
+    balance: 6500,
+    feePercent: 1.5,
+    color: 'bg-amber-400 text-slate-950',
+    shortCode: 'BP',
+  },
+  {
+    id: 'nowpayments',
+    name: 'Crypto (NOWPayments)',
+    currency: 'USD',
+    balance: 5200,
+    feePercent: 1.5,
+    color: 'bg-sky-500',
+    shortCode: 'NP',
+  },
+];
+
+// ============================================================================
+// UTILITAIRES DE FORMATAGE
+// ============================================================================
+
+const formatMoney = (amount, currency) => {
+  if (currency === 'GDS') {
+    return `${Number(amount).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} GDS`;
+  }
+  return `${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $USD`;
+};
+
+const calculateEndDate = (startDateStr, monthsToAdd) => {
+  const date = new Date(startDateStr);
+  date.setMonth(date.getMonth() + monthsToAdd);
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
+// ============================================================================
+// COMPOSANT PRINCIPAL DE L'APPLICATION
+// ============================================================================
+
+export default function App() {
+  // Mode d'affichage : 'client' ou 'admin'
+  const [viewMode, setViewMode] = useState('client');
+  // Onglet actif dans la section Investir : 'sans_risque' | 'moins_risque' | 'a_risque' | 'mes_investissements'
+  const [activeTab, setActiveTab] = useState('sans_risque');
+  // Menu latéral (Drawer) & Économie de données
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [dataSaver, setDataSaver] = useState(false);
+
+  // Paramètres de simulation et de sélection du client
+  const [currency, setCurrency] = useState('GDS');
+  const [selectedAmount, setSelectedAmount] = useState(50000);
+  const [selectedDuration, setSelectedDuration] = useState(DURATIONS[1]); // 3 mois par défaut
+  const [selectedSector, setSelectedSector] = useState('Trading Crypto & Devises');
+  const [selectedGatewayId, setSelectedGatewayId] = useState('moncash');
+
+  // Soldes des passerelles (mis à jour lors d'une validation)
+  const [walletBalances, setWalletBalances] = useState({
+    moncash: 350000,
+    natcash: 280000,
+    binance: 6500,
+    nowpayments: 5200,
+  });
+
+  // Feedback / Toast utilisateur (sans jamais utiliser alert())
+  const [toastMessage, setToastMessage] = useState(null);
+  // Impression d'un reçu spécifique
+  const [printTarget, setPrintTarget] = useState(null);
+
+  // Liste des investissements (pré-remplie avec des exemples anonymisés + nouveaux ajouts)
+  const [investments, setInvestments] = useState([
+    {
+      id: 'INV-8492',
+      clientCode: 'Client #1042',
+      categoryKey: 'sans_risque',
+      categoryName: 'Investissement sans risque',
+      sector: 'Capital Garanti MCSE',
+      amount: 50000,
+      currency: 'GDS',
+      durationLabel: '6 mois',
+      months: 6,
+      monthlyProfit: 400,
+      totalProfit: 2400,
+      gatewayName: 'Moncash online',
+      feeAmount: 750,
+      totalPaid: 50750,
+      createdAt: '2026-10-12',
+      endDate: '12 avr. 2027',
+      status: 'Validé / Actif',
+    },
+    {
+      id: 'INV-8507',
+      clientCode: 'Client #1089',
+      categoryKey: 'a_risque',
+      categoryName: 'Investissement à risque',
+      sector: 'Trading Crypto & Devises',
+      amount: 1000,
+      currency: 'USD',
+      durationLabel: '3 mois',
+      months: 3,
+      monthlyProfit: 23,
+      totalProfit: 69,
+      gatewayName: 'Binance Pay',
+      feeAmount: 15,
+      totalPaid: 1015,
+      createdAt: '2026-11-17',
+      endDate: '17 févr. 2027',
+      status: 'En attente de validation Admin',
+    },
+  ]);
+
+  const showToast = (text, type = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  // Changement de devise -> réinitialiser le montant par défaut et la passerelle compatible
+  const handleCurrencyChange = (newCurrency) => {
+    setCurrency(newCurrency);
+    if (newCurrency === 'GDS') {
+      setSelectedAmount(50000);
+      setSelectedGatewayId('moncash');
+    } else {
+      setSelectedAmount(1000);
+      setSelectedGatewayId('binance');
+    }
+  };
+
+  // Calculs financiers en temps réel
+  const currentCategory = CATEGORIES[activeTab] || CATEGORIES.sans_risque;
+  const activeGateway = PAYMENT_GATEWAYS.find((g) => g.id === selectedGatewayId) || PAYMENT_GATEWAYS[0];
+  const currentBalance = walletBalances[activeGateway.id] ?? 0;
+
+  const financialSummary = useMemo(() => {
+    const rate = currentCategory.monthlyRate;
+    const monthlyProfit = selectedAmount * rate;
+    const totalProfit = monthlyProfit * selectedDuration.months;
+    const fee = selectedAmount * 0.015; // 1.5%
+    const totalCost = selectedAmount + fee;
+    const hasEnoughBalance = currentBalance >= totalCost;
+
+    return {
+      monthlyProfit,
+      totalProfit,
+      fee,
+      totalCost,
+      hasEnoughBalance,
+    };
+  }, [currentCategory, selectedAmount, selectedDuration, currentBalance]);
+
+  // Soumission de l'investissement par le client
+  const handleValidateInvestment = () => {
+    if (!financialSummary.hasEnoughBalance) {
+      showToast(`Solde ${activeGateway.name} insuffisant pour couvrir le coût total.`, 'error');
+      return;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const newId = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newInvestment = {
+      id: newId,
+      clientCode: 'Client #1042',
+      categoryKey: currentCategory.id,
+      categoryName: currentCategory.title,
+      sector:
+        currentCategory.id === 'a_risque'
+          ? selectedSector
+          : currentCategory.id === 'moins_risque'
+          ? 'Portefeuille Mixte MCSE'
+          : 'Capital Garanti MCSE',
+      amount: selectedAmount,
+      currency,
+      durationLabel: selectedDuration.label,
+      months: selectedDuration.months,
+      monthlyProfit: financialSummary.monthlyProfit,
+      totalProfit: financialSummary.totalProfit,
+      gatewayName: activeGateway.name,
+      feeAmount: financialSummary.fee,
+      totalPaid: financialSummary.totalCost,
+      createdAt: todayStr,
+      endDate: calculateEndDate(todayStr, selectedDuration.months),
+      status: 'En attente de validation Admin',
+    };
+
+    // Débit simulé du solde et ajout de la demande
+    setWalletBalances((prev) => ({
+      ...prev,
+      [activeGateway.id]: Number((prev[activeGateway.id] - financialSummary.totalCost).toFixed(2)),
+    }));
+    setInvestments((prev) => [newInvestment, ...prev]);
+    setActiveTab('mes_investissements');
+    showToast(`Demande ${newId} enregistrée ! En attente de validation Admin.`);
+  };
+
+  // Suppression d'un investissement dans "Mes Investissements"
+  const handleDeleteInvestment = (id) => {
+    setInvestments((prev) => prev.filter((item) => item.id !== id));
+    showToast(`Investissement ${id} supprimé de votre liste.`);
+  };
+
+  // Impression d'un reçu d'investissement
+  const handlePrintInvestment = (inv) => {
+    setPrintTarget(inv);
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
+  // Actions Admin : Accepter ou Refuser une demande
+  const handleAdminDecision = (id, decision) => {
+    setInvestments((prev) =>
+      prev.map((inv) => {
+        if (inv.id !== id) return inv;
+        return {
+          ...inv,
+          status: decision === 'accept' ? 'Validé / Actif' : 'Refusé',
+        };
+      })
+    );
+    showToast(
+      decision === 'accept'
+        ? `Investissement ${id} accepté et activé !`
+        : `Investissement ${id} refusé.`,
+      decision === 'accept' ? 'success' : 'error'
+    );
+  };
+
+  const pendingCount = investments.filter((i) => i.status === 'En attente de validation Admin').length;
+
+  return (
+    <div className="min-h-screen bg-[#07110d] text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950 pb-20">
+      {/* Styles dédiés à l'impression propre d'un reçu */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #printable-receipt, #printable-receipt * { visibility: visible; }
+          #printable-receipt {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+            color: black !important;
+            padding: 24px;
+          }
+        }
+      `}</style>
+
+      {/* =====================================================================
+          1. L'EN-TÊTE (HEADER) — TOUT EN HAUT
+      ===================================================================== */}
+      <header className="sticky top-0 z-40 bg-[#0a1712]/95 backdrop-blur-md border-b border-emerald-900/50 px-4 py-3">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          {/* Gauche : Menu Burger + Logo vert ALEVINI / MCSE */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Ouvrir le menu"
+              className="p-2 rounded-xl bg-[#10221b] hover:bg-emerald-900/50 border border-emerald-800/40 text-emerald-400 transition"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <span className="font-black text-slate-950 text-base tracking-tighter">AV</span>
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold tracking-wide text-emerald-400 text-base">
+                    ALEVINI
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                    MCSE
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-none mt-0.5">
+                  Finance & Investissement
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Droite : Bascule Client / Admin + Icône Notification avec badge */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViewMode(viewMode === 'client' ? 'admin' : 'client')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition ${
+                viewMode === 'admin'
+                  ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-md shadow-amber-500/20'
+                  : 'bg-[#10221b] text-emerald-300 border-emerald-700/50 hover:bg-emerald-900/40'
+              }`}
+            >
+              {viewMode === 'admin' ? (
+                <>
+                  <User className="w-3.5 h-3.5" />
+                  <span>Vue Client</span>
+                </>
+              ) : (
+                <>
+                  <UserCog className="w-3.5 h-3.5" />
+                  <span>Admin</span>
+                  {pendingCount > 0 && (
+                    <span className="ml-0.5 bg-amber-400 text-slate-950 text-[10px] px-1.5 rounded-full font-extrabold">
+                      {pendingCount}
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() =>
+                showToast(
+                  pendingCount > 0
+                    ? `Vous avez ${pendingCount} demande(s) d'investissement en attente.`
+                    : 'Aucune nouvelle alerte.'
+                )
+              }
+              aria-label="Notifications"
+              className="relative p-2 rounded-xl bg-[#10221b] hover:bg-emerald-900/50 border border-emerald-800/40 text-emerald-400 transition"
+            >
+              <Bell className="w-5 h-5" />
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-emerald-400 text-slate-950 text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Notification Toast dynamique */}
+      {toastMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
+          <div
+            className={`px-4 py-3 rounded-2xl shadow-2xl border text-xs font-semibold flex items-center justify-between backdrop-blur-md ${
+              toastMessage.type === 'error'
+                ? 'bg-red-950/90 border-red-500/50 text-red-200'
+                : 'bg-emerald-950/95 border-emerald-400/50 text-emerald-200'
+            }`}
+          >
+            <span>{toastMessage.text}</span>
+            <button onClick={() => setToastMessage(null)} className="ml-3 opacity-70 hover:opacity-100">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          CONTENEUR PRINCIPAL
+      ===================================================================== */}
+      <main className="max-w-3xl mx-auto px-4 pt-5 space-y-5">
+        {/* ===================================================================
+            2. L'EN-TÊTE "MCSE L'INVESTISSEMENT" — JUSTE SOUS LE MENU PRINCIPAL
+        =================================================================== */}
+        <section
+          className={`rounded-2xl p-5 border border-emerald-800/40 relative overflow-hidden ${
+            dataSaver
+              ? 'bg-[#0d1f17]'
+              : 'bg-gradient-to-br from-[#10261d] via-[#0c1d16] to-[#091510]'
+          }`}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 rounded-full mb-2">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Capital & Rendement • MCSE</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                MCSE L&apos;investissement
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl leading-relaxed">
+                Faites fructifier votre capital en Gourdes (GDS) ou en Dollars ($USD) selon votre profil
+                de risque, avec suivi transparent et récupération garantie à l&apos;échéance.
+              </p>
+            </div>
+
+            {dataSaver && (
+              <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-500/30">
+                ⚡ Mode Éco Data
+              </span>
+            )}
+          </div>
+        </section>
+
+        {/* ===================================================================
+            VUE ADMINISTRATION (ADMIN)
+        =================================================================== */}
+        {viewMode === 'admin' ? (
+          <section className="space-y-4">
+            <div className="bg-[#10221b] border border-amber-500/30 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-amber-300 flex items-center gap-2">
+                  <UserCog className="w-5 h-5" />
+                  <span>Administration • Validation des Investissements</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Acceptez ou refusez les demandes d&apos;investissement soumises par les clients.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                  En attente : {pendingCount}
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold">
+                  Total : {investments.length}
+                </span>
+              </div>
+            </div>
+
+            {investments.length === 0 ? (
+              <div className="bg-[#10221b] border border-emerald-900/40 rounded-2xl p-8 text-center text-sm text-slate-400">
+                Aucune demande d&apos;investissement enregistrée pour le moment.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {investments.map((inv) => {
+                  const isPending = inv.status === 'En attente de validation Admin';
+                  const isApproved = inv.status === 'Validé / Actif';
+
+                  return (
+                    <div
+                      key={inv.id}
+                      className="bg-[#10221b] border border-emerald-800/40 rounded-2xl p-4 space-y-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-900/40 pb-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-emerald-400">
+                              {inv.id}
+                            </span>
+                            <span className="text-xs text-slate-400">• {inv.clientCode}</span>
+                          </div>
+                          <h3 className="font-bold text-white text-sm mt-0.5">
+                            {inv.categoryName} — <span className="text-emerald-300">{inv.sector}</span>
+                          </h3>
+                        </div>
+
+                        <span
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                            isApproved
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                              : isPending
+                              ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                              : 'bg-red-500/15 text-red-300 border-red-500/30'
+                          }`}
+                        >
+                          {inv.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div className="bg-[#0a1712] p-2.5 rounded-xl border border-emerald-900/40">
+                          <span className="text-slate-400 block">Capital investi</span>
+                          <span className="font-bold text-white text-sm">
+                            {formatMoney(inv.amount, inv.currency)}
+                          </span>
+                        </div>
+                        <div className="bg-[#0a1712] p-2.5 rounded-xl border border-emerald-900/40">
+                          <span className="text-slate-400 block">Profit mensuel</span>
+                          <span className="font-bold text-emerald-400 text-sm">
+                            +{formatMoney(inv.monthlyProfit, inv.currency)}
+                          </span>
+                        </div>
+                        <div className="bg-[#0a1712] p-2.5 rounded-xl border border-emerald-900/40">
+                          <span className="text-slate-400 block">Durée & Échéance</span>
+                          <span className="font-semibold text-slate-200">
+                            {inv.durationLabel} ({inv.endDate})
+                          </span>
+                        </div>
+                        <div className="bg-[#0a1712] p-2.5 rounded-xl border border-emerald-900/40">
+                          <span className="text-slate-400 block">Passerelle</span>
+                          <span className="font-semibold text-slate-200">{inv.gatewayName}</span>
+                        </div>
+                      </div>
+
+                      {/* Boutons de décision Admin */}
+                      <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+                        <button
+                          onClick={() => handleAdminDecision(inv.id, 'reject')}
+                          disabled={inv.status === 'Refusé'}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-950/70 hover:bg-red-900/70 text-red-300 border border-red-700/50 disabled:opacity-40 transition"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          <span>Refuser</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleAdminDecision(inv.id, 'accept')}
+                          disabled={inv.status === 'Validé / Actif'}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 disabled:opacity-40 transition shadow-md shadow-emerald-500/20"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Accepter & Activer</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        ) : (
+          /* ===================================================================
+              VUE CLIENT PRINCIPALE
+          =================================================================== */
+          <>
+            {/* =================================================================
+                3. LES ONGLETS DE CATÉGORIES — RANGÉS HORIZONTALEMENT SOUS L'EN-TÊTE
+            ================================================================= */}
+            <nav
+              aria-label="Catégories d'investissement"
+              className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar"
+            >
+              {[
+                { id: 'sans_risque', label: 'Investissement sans risque', icon: ShieldCheck },
+                { id: 'moins_risque', label: 'Investissement à moins de risque', icon: TrendingUp },
+                { id: 'a_risque', label: 'Investissement à risque', icon: AlertTriangle },
+                {
+                  id: 'mes_investissements',
+                  label: `Mes Investissements (${investments.length})`,
+                  icon: Briefcase,
+                },
+              ].map((tab) => {
+                const IconComponent = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap border transition shrink-0 ${
+                      isActive
+                        ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-lg shadow-emerald-500/20'
+                        : 'bg-[#10221b] text-slate-300 border-emerald-900/50 hover:border-emerald-700/60 hover:text-white'
+                    }`}
+                  >
+                    <IconComponent className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* =================================================================
+                ONGLET 4 : MES INVESTISSEMENTS
+            ================================================================= */}
+            {activeTab === 'mes_investissements' ? (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-white">
+                    Historique & Suivi de vos investissements
+                  </h2>
+                  <span className="text-xs text-emerald-400 font-medium">
+                    {investments.length} dossier(s)
+                  </span>
+                </div>
+
+                {investments.length === 0 ? (
+                  <div className="bg-[#10221b] border border-emerald-900/50 rounded-2xl p-8 text-center space-y-3">
+                    <p className="text-sm text-slate-300">
+                      Vous n&apos;avez aucun investissement enregistré pour le moment.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('sans_risque')}
+                      className="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs"
+                    >
+                      Commencer un investissement
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {investments.map((inv) => {
+                      const isApproved = inv.status === 'Validé / Actif';
+                      const isRejected = inv.status === 'Refusé';
+
+                      return (
+                        <div
+                          key={inv.id}
+                          className="bg-[#10221b] border border-emerald-800/40 rounded-2xl p-4 space-y-3 shadow-lg"
+                        >
+                          {/* En-tête de la carte */}
+                          <div className="flex flex-wrap items-start justify-between gap-2 border-b border-emerald-900/40 pb-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono font-bold text-emerald-400">
+                                  {inv.id}
+                                </span>
+                                <span className="text-[11px] text-slate-400">
+                                  • Créé le {inv.createdAt}
+                                </span>
+                              </div>
+                              <h3 className="font-bold text-white text-base mt-0.5">
+                                {inv.categoryName}
+                              </h3>
+                              <p className="text-xs text-emerald-300/90">{inv.sector}</p>
+                            </div>
+
+                            {/* Statut */}
+                            <span
+                              className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                                isApproved
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                  : isRejected
+                                  ? 'bg-red-500/15 text-red-300 border-red-500/30'
+                                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                              }`}
+                            >
+                              {isApproved ? (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              ) : isRejected ? (
+                                <XCircle className="w-3.5 h-3.5" />
+                              ) : (
+                                <Clock className="w-3.5 h-3.5" />
+                              )}
+                              <span>{inv.status}</span>
+                            </span>
+                          </div>
+
+                          {/* Détails chiffrés */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                            <div className="bg-[#0a1712] p-2.5 rounded-xl border border-emerald-900/40">
+                              <span className="text-slate-400 block">Capital investi</span>
+                              <span className="font-bold text-white text-sm">
+                                {formatMoney(inv.amount, inv.currency)}
+                              </span>
+                            </div>
+                            <div className="bg-[#0a1712] p-2.5 rounded-xl border border-emerald-900/40">
+                              <span className="text-slate-400 block">Profit / mois</span>
+                              <span className="font-bold text-emerald-400 text-sm">
+                                +{formatMoney(inv.monthlyProfit, inv.currency)}
+                              </span>
+                            </div>
+                            <div className="bg-[#0a1712] p-2.5 rounded-xl border border-emerald-900/40">
+                              <span className="text-slate-400 block">Profit total ({inv.durationLabel})</span>
+                              <span className="font-bold text-emerald-300 text-sm">
+                                +{formatMoney(inv.totalProfit, inv.currency)}
+                              </span>
+                            </div>
+                            <div className="bg-[#0a1712] p-2.5 rounded-xl border border-emerald-900/40">
+                              <span className="text-slate-400 block">Récupération capital</span>
+                              <span className="font-semibold text-white">{inv.endDate}</span>
+                            </div>
+                          </div>
+
+                          {/* Pied de carte : Moyen de paiement + Boutons Imprimer et Supprimer */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <span className="text-[11px] text-slate-400">
+                              Règlement : <strong className="text-slate-200">{inv.gatewayName}</strong> (Frais :{' '}
+                              {formatMoney(inv.feeAmount, inv.currency)})
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handlePrintInvestment(inv)}
+                                title="Imprimer le reçu"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-300 border border-emerald-700/40 text-xs font-semibold transition"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                                <span>Imprimer</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleDeleteInvestment(inv.id)}
+                                title="Supprimer cet investissement"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-800/40 text-xs font-semibold transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Supprimer</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            ) : (
+              /* =================================================================
+                  ONGLETS 1, 2, 3 : FORMULAIRE & SIMULATEUR D'INVESTISSEMENT
+              ================================================================= */
+              <div className="space-y-5">
+                {/* Carte d'information et Termes & Conditions de la catégorie */}
+                <section className="bg-[#10221b] border border-emerald-800/40 rounded-2xl p-4 sm:p-5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-base sm:text-lg font-bold text-white">
+                      {currentCategory.title}
+                    </h2>
+                    <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      {currentCategory.badge}
+                    </span>
+                  </div>
+
+                  {/* Règle de rendement */}
+                  <div className="bg-[#0a1712] border border-emerald-700/30 rounded-xl p-3 flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-400 shrink-0">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] uppercase tracking-wider text-slate-400 block">
+                        Rendement estimé
+                      </span>
+                      <span className="text-xs sm:text-sm font-bold text-emerald-300">
+                        {currentCategory.rateLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Termes et conditions spécifiques */}
+                  <div className="bg-[#0a1712]/70 rounded-xl p-3.5 border border-emerald-900/40 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Termes & Conditions</span>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {currentCategory.terms}
+                    </p>
+                  </div>
+
+                  {/* Transparence authentique pour "Investissement à moins de risque" */}
+                  {activeTab === 'moins_risque' && (
+                    <div className="pt-1 space-y-2">
+                      <span className="text-xs font-bold text-slate-200 block">
+                        Transparence des placements en cours (Évolution réelle) :
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {CATEGORIES.moins_risque.transparencyFeed.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-[#0a1712] border border-emerald-900/40 rounded-xl p-2.5 text-xs"
+                          >
+                            <div className="flex items-center justify-between font-bold">
+                              <span className="text-slate-200 truncate">{item.sector}</span>
+                              <span
+                                className={`inline-flex items-center ${
+                                  item.positive ? 'text-emerald-400' : 'text-amber-400'
+                                }`}
+                              >
+                                {item.positive ? (
+                                  <ArrowUpRight className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ArrowDownRight className="w-3.5 h-3.5" />
+                                )}
+                                {item.trend}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-1">{item.note}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Choix du secteur pour "Investissement à risque" */}
+                  {activeTab === 'a_risque' && (
+                    <div className="pt-1 space-y-2">
+                      <label className="text-xs font-bold text-emerald-300 block">
+                        Choisissez le secteur dans lequel vous souhaitez investir :
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        {CATEGORIES.a_risque.sectors.map((sec) => {
+                          const isSelected = selectedSector === sec.name;
+                          return (
+                            <button
+                              key={sec.id}
+                              type="button"
+                              onClick={() => setSelectedSector(sec.name)}
+                              className={`text-left p-3 rounded-xl border transition ${
+                                isSelected
+                                  ? 'bg-emerald-500/15 border-emerald-400 ring-1 ring-emerald-400'
+                                  : 'bg-[#0a1712] border-emerald-900/50 hover:border-emerald-700'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-xs font-bold text-white">{sec.name}</span>
+                                <span
+                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                    sec.positive
+                                      ? 'bg-emerald-500/20 text-emerald-300'
+                                      : 'bg-amber-500/20 text-amber-300'
+                                  }`}
+                                >
+                                  {sec.performance}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400 mt-1.5">{sec.riskNote}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* ===============================================================
+                    4. PARAMÈTRES DE DURÉE ET DE MONTANTS
+                =============================================================== */}
+                <section className="bg-[#10221b] border border-emerald-800/40 rounded-2xl p-4 sm:p-5 space-y-4">
+                  {/* Choix de la devise */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-emerald-400" />
+                      <span>1. Montant & Devise</span>
+                    </h3>
+
+                    <div className="inline-flex rounded-xl bg-[#0a1712] p-1 border border-emerald-900/50">
+                      {['GDS', 'USD'].map((curr) => (
+                        <button
+                          key={curr}
+                          type="button"
+                          onClick={() => handleCurrencyChange(curr)}
+                          className={`px-3 py-1 rounded-lg text-xs font-extrabold transition ${
+                            currency === curr
+                              ? 'bg-emerald-500 text-slate-950'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {curr === 'GDS' ? 'Gourdes (GDS)' : 'Dollars ($USD)'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Grille des montants autorisés */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {(currency === 'GDS' ? GDS_AMOUNTS : USD_AMOUNTS).map((amt) => {
+                      const active = selectedAmount === amt;
+                      return (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setSelectedAmount(amt)}
+                          className={`py-3 px-3 rounded-xl font-extrabold text-sm border transition ${
+                            active
+                              ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow-md shadow-emerald-500/20'
+                              : 'bg-[#0a1712] text-slate-200 border-emerald-900/50 hover:border-emerald-600'
+                          }`}
+                        >
+                          {formatMoney(amt, currency)}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Choix de la durée */}
+                  <div className="pt-2 space-y-2.5">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-emerald-400" />
+                      <span>2. Durée de l&apos;investissement</span>
+                    </h3>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {DURATIONS.map((dur) => {
+                        const active = selectedDuration.id === dur.id;
+                        return (
+                          <button
+                            key={dur.id}
+                            type="button"
+                            onClick={() => setSelectedDuration(dur)}
+                            className={`py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm border transition ${
+                              active
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400'
+                                : 'bg-[#0a1712] text-slate-300 border-emerald-900/50 hover:border-emerald-700'
+                            }`}
+                          >
+                            {dur.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Rappel de la règle générale */}
+                  <div className="bg-emerald-950/50 border border-emerald-700/40 rounded-xl p-3 flex items-start gap-2.5">
+                    <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-emerald-200 leading-relaxed">
+                      <strong>Règle générale :</strong> Dès que l&apos;investissement est validé, le
+                      client pourra récupérer son capital initial de{' '}
+                      <strong>{formatMoney(selectedAmount, currency)}</strong> à la fin de la
+                      période choisie (<strong>{selectedDuration.label}</strong>).
+                    </p>
+                  </div>
+                </section>
+
+                {/* ===============================================================
+                    5. SECTION DE VALIDATION / PAIEMENT (PANNEAU DE VALIDATION)
+                =============================================================== */}
+                <section className="bg-[#10221b] border border-emerald-700/50 rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-emerald-900/50 pb-3">
+                    <div>
+                      <span className="text-[11px] uppercase tracking-wider text-emerald-400 font-bold">
+                        Investissement sélectionné
+                      </span>
+                      <h3 className="text-base font-extrabold text-white">
+                        {currentCategory.title} ({selectedDuration.label})
+                      </h3>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-lg font-black text-emerald-400 block">
+                        {formatMoney(selectedAmount, currency)}
+                      </span>
+                      <span className="text-[11px] text-emerald-300">
+                        Profit : +{formatMoney(financialSummary.monthlyProfit, currency)} / mois
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Passerelle de règlement sécurisée */}
+                  <div className="space-y-2.5">
+                    <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Passerelle de règlement sécurisée (Frais 1,5 %)</span>
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {PAYMENT_GATEWAYS.map((gw) => {
+                        const isSelected = selectedGatewayId === gw.id;
+                        const gwBalance = walletBalances[gw.id] ?? 0;
+                        const isCurrencyMatch = gw.currency === currency;
+
+                        return (
+                          <button
+                            key={gw.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedGatewayId(gw.id);
+                              if (gw.currency !== currency) {
+                                handleCurrencyChange(gw.currency);
+                              }
+                            }}
+                            className={`p-3 rounded-xl border text-left transition flex items-center justify-between ${
+                              isSelected
+                                ? 'bg-emerald-500/15 border-emerald-400 ring-1 ring-emerald-400'
+                                : 'bg-[#0a1712] border-emerald-900/50 hover:border-emerald-700'
+                            } ${!isCurrencyMatch ? 'opacity-75' : ''}`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`w-9 h-9 rounded-lg ${gw.color} font-black text-xs flex items-center justify-center shrink-0`}
+                              >
+                                {gw.shortCode}
+                              </div>
+                              <div>
+                                <span className="text-xs font-bold text-white block">
+                                  {gw.name}
+                                </span>
+                                <span className="text-[11px] text-emerald-400 font-medium">
+                                  Solde : {formatMoney(gwBalance, gw.currency)} • 1,5 %
+                                </span>
+                              </div>
+                            </div>
+
+                            <div
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                isSelected ? 'border-emerald-400' : 'border-slate-600'
+                              }`}
+                            >
+                              {isSelected && (
+                                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Récapitulatif financier */}
+                  <div className="bg-[#0a1712] border border-emerald-900/60 rounded-xl p-3.5 space-y-2 text-xs">
+                    <div className="flex justify-between text-slate-300">
+                      <span>Solde disponible ({activeGateway.name}) :</span>
+                      <span className="font-bold text-white">
+                        {formatMoney(currentBalance, activeGateway.currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-300">
+                      <span>Capital investi :</span>
+                      <span className="font-semibold text-white">
+                        {formatMoney(selectedAmount, currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-300">
+                      <span>Profit total estimé ({selectedDuration.label}) :</span>
+                      <span className="font-bold text-emerald-400">
+                        +{formatMoney(financialSummary.totalProfit, currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-300">
+                      <span>Frais de passerelle (1,5 %) :</span>
+                      <span className="font-semibold text-amber-300">
+                        {formatMoney(financialSummary.fee, currency)}
+                      </span>
+                    </div>
+                    <div className="border-t border-emerald-900/50 pt-2 flex justify-between text-sm font-extrabold">
+                      <span className="text-white">Coût total à régler :</span>
+                      <span className="text-emerald-400">
+                        {formatMoney(financialSummary.totalCost, currency)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bouton d'action principal */}
+                  <button
+                    type="button"
+                    onClick={handleValidateInvestment}
+                    className="w-full py-3.5 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] text-slate-950 font-black text-sm sm:text-base transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>Valider • {formatMoney(financialSummary.totalCost, currency)}</span>
+                  </button>
+                </section>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* =====================================================================
+          TIROIR LATÉRAL (MENU BURGER)
+      ===================================================================== */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <aside className="relative w-72 max-w-[82vw] bg-[#0d1f17] border-r border-emerald-800/50 h-full p-5 flex flex-col justify-between z-10">
+            <div className="space-y-5">
+              <div className="flex items-center justify-between border-b border-emerald-900/50 pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500 text-slate-950 font-black flex items-center justify-center">
+                    AV
+                  </div>
+                  <span className="font-extrabold text-emerald-400 tracking-wide">
+                    ALEVINI • MCSE
+                  </span>
+                </div>
+                <button
+                  onClick={() => setDrawerOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Navigation rapide */}
+              <div className="space-y-1.5 text-xs font-semibold">
+                <button
+                  onClick={() => {
+                    setViewMode('client');
+                    setActiveTab('sans_risque');
+                    setDrawerOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                >
+                  <span>MCSE L&apos;investissement</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setViewMode('client');
+                    setActiveTab('mes_investissements');
+                    setDrawerOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-[#142d22] text-slate-300"
+                >
+                  <span>Mes Investissements ({investments.length})</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setViewMode('admin');
+                    setDrawerOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-[#142d22] text-amber-300"
+                >
+                  <span>Espace Administration (Admin)</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Option Économie de données */}
+              <div className="bg-[#0a1712] border border-emerald-900/50 rounded-xl p-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                  <div>
+                    <span className="text-xs font-bold text-white block">Économie de données</span>
+                    <span className="text-[10px] text-slate-400">Réduit les effets visuels</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDataSaver(!dataSaver)}
+                  className={`w-10 h-5 rounded-full transition p-0.5 ${
+                    dataSaver ? 'bg-emerald-500' : 'bg-slate-700'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                      dataSaver ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-slate-500 border-t border-emerald-900/40 pt-3">
+              Identifiant session : Client #1042 • MCSE v11.0
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* =====================================================================
+          REÇU IMPRIMABLE CACHÉ (S'AFFICHE UNIQUEMENT LORS DE L'IMPRESSION)
+      ===================================================================== */}
+      {printTarget && (
+        <div id="printable-receipt" className="hidden print:block">
+          <div className="border-2 border-black p-6 max-w-lg mx-auto space-y-4">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h1 className="text-xl font-black">ALEVINI • MCSE L&apos;INVESTISSEMENT</h1>
+                <p className="text-xs">Certificat / Reçu d&apos;investissement officiel</p>
+              </div>
+              <span className="font-mono font-bold text-sm">{printTarget.id}</span>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <p>
+                <strong>Client :</strong> {printTarget.clientCode}
+              </p>
+              <p>
+                <strong>Catégorie :</strong> {printTarget.categoryName}
+              </p>
+              <p>
+                <strong>Secteur / Affectation :</strong> {printTarget.sector}
+              </p>
+              <p>
+                <strong>Capital investi :</strong>{' '}
+                {formatMoney(printTarget.amount, printTarget.currency)}
+              </p>
+              <p>
+                <strong>Durée :</strong> {printTarget.durationLabel} (Échéance :{' '}
+                {printTarget.endDate})
+              </p>
+              <p>
+                <strong>Profit mensuel estimé :</strong>{' '}
+                {formatMoney(printTarget.monthlyProfit, printTarget.currency)}
+              </p>
+              <p>
+                <strong>Profit total estimé :</strong>{' '}
+                {formatMoney(printTarget.totalProfit, printTarget.currency)}
+              </p>
+              <p>
+                <strong>Passerelle de règlement :</strong> {printTarget.gatewayName} (Frais 1,5 % :{' '}
+                {formatMoney(printTarget.feeAmount, printTarget.currency)})
+              </p>
+              <p>
+                <strong>Total réglé :</strong>{' '}
+                {formatMoney(printTarget.totalPaid, printTarget.currency)}
+              </p>
+              <p>
+                <strong>Statut actuel :</strong> {printTarget.status}
+              </p>
+            </div>
+
+            <div className="border-t pt-3 text-xs">
+              Règle générale : Dès validation par l&apos;administration, le capital initial est
+              récupérable à la fin de la période choisie.
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

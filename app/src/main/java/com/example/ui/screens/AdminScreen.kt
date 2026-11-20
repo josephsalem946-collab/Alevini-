@@ -7,9 +7,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,22 +24,27 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.Webhook
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -71,20 +80,39 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import com.example.data.model.AdminNotification
 import com.example.data.model.ExchangeConfig
 import com.example.data.model.ExchangeOrder
+import com.example.data.model.InvestmentRecord
 import com.example.data.model.LedgerEntry
+import com.example.data.model.NetflixInventoryItem
 import com.example.data.model.OrderStatus
 import com.example.data.model.PaymentMethod
+import com.example.data.model.PaymentSession
+import com.example.data.model.StoreCategory
+import com.example.data.model.StoreConfig
+import com.example.data.model.StoreDeliveryType
+import com.example.data.model.StoreFulfillmentMode
+import com.example.data.model.StoreOrder
+import com.example.data.model.StoreProduct
+import com.example.data.model.StoreProviderHealth
 import com.example.data.model.UserProfile
+import com.example.data.model.WebhookEvent
 import com.example.data.repository.AleviniRepository
 import com.example.ui.components.OrderStatusBadge
+import com.example.ui.components.ScrollToTopButton
 import com.example.ui.components.formatNum
 import com.example.ui.theme.EmeraldContainer
 import com.example.ui.theme.EmeraldPrimary
@@ -232,21 +260,74 @@ fun AdminScreen(
     usersState: UiState<List<UserProfile>>,
     ledgerState: UiState<List<LedgerEntry>>,
     adminNotificationsState: UiState<List<AdminNotification>>,
+    paymentSessionsState: UiState<List<PaymentSession>>,
+    webhookEventsState: UiState<List<WebhookEvent>>,
+    storeConfig: StoreConfig,
+    catalogProducts: List<StoreProduct>,
+    storeOrdersState: UiState<List<StoreOrder>>,
+    netflixInventoryState: UiState<List<NetflixInventoryItem>>,
+    investmentsState: UiState<List<InvestmentRecord>>,
+    storeProvidersHealth: List<StoreProviderHealth>,
+    isStoreGatewayBusy: Boolean,
+    initialTab: Int = 0,
     checkedSecurityItems: Set<String>,
     onSaveConfig: (ExchangeConfig) -> Unit,
     onCompleteOrder: (ExchangeOrder, String) -> Unit,
     onUpdateOrderStatus: (String, OrderStatus, String) -> Unit,
     onDeleteOrder: (String) -> Unit,
     onToggleUserBlocked: (String, Boolean) -> Unit,
+    onAdjustGatewayBalance: (String, PaymentMethod, Double) -> Unit,
     onDeleteUser: (String) -> Unit,
     onDeleteLedgerEntry: (String) -> Unit,
     onSendNotification: (title: String, message: String, targetUserId: String, targetLabel: String, isAlert: Boolean, onSuccess: () -> Unit) -> Unit,
     onDeleteNotification: (String) -> Unit,
+    onDeletePaymentSession: (String) -> Unit,
+    onDeleteWebhookEvent: (String) -> Unit,
+    onSaveStoreConfig: (StoreConfig) -> Unit,
+    onSetFulfillmentMode: (StoreFulfillmentMode) -> Unit,
+    onTopUpMeruUsd: () -> Unit,
+    onTransferMeruToReloadly: () -> Unit,
+    onTestAllStoreApis: () -> Unit,
+    onFulfillStarlinkViaMeru: (StoreOrder, String) -> Unit,
+    onAssignNetflixAndDeliver: (StoreOrder) -> Unit,
+    onDeliverManualStoreCode: (StoreOrder, String, String) -> Unit,
+    onRetryStoreOrderApi: (StoreOrder) -> Unit,
+    onRejectStoreOrder: (StoreOrder, String) -> Unit,
+    onDeleteStoreOrder: (String) -> Unit,
+    onAddStoreProduct: (
+        category: StoreCategory,
+        deliveryType: StoreDeliveryType,
+        badge: String,
+        title: String,
+        subtitle: String,
+        usdCost: Double,
+        usdSell: Double,
+        targetAccountLabel: String,
+        onSuccess: () -> Unit,
+    ) -> Unit,
+    onDeleteStoreProduct: (String) -> Unit,
+    onAddNetflixProfile: (String, String, String, String, () -> Unit) -> Unit,
+    onDeleteNetflixProfile: (NetflixInventoryItem) -> Unit,
+    onApproveInvestment: (InvestmentRecord) -> Unit,
+    onRejectInvestment: (InvestmentRecord) -> Unit,
+    onDeleteInvestment: (String) -> Unit,
     onToggleSecurityItem: (String) -> Unit,
     onResetSecurityChecklist: () -> Unit,
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Commandes", "Notifications", "Taux & Frais", "Clients & Caisse", "Gid Sekirite")
+    var selectedTab by remember { mutableIntStateOf(initialTab.coerceIn(0, 7)) }
+    LaunchedEffect(initialTab) {
+        selectedTab = initialTab.coerceIn(0, 7)
+    }
+    val tabs = listOf(
+        "Commandes",
+        "Store & Fournisseurs",
+        "Investir",
+        "Notifications",
+        "Taux & Frais",
+        "Passerelles API",
+        "Clients & Caisse",
+        "Gid Sekirite",
+    )
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -261,16 +342,20 @@ fun AdminScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Back-Office Admin",
                         style = MaterialTheme.typography.headlineMedium,
                         color = GoldAccent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = "Contrôle Alevini • josephsalem946@gmail.com",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -301,6 +386,7 @@ fun AdminScreen(
                                 color = if (selectedTab == index) EmeraldPrimary else TextSecondary,
                             )
                         },
+                        modifier = Modifier.testTag("admin_tab_$index"),
                     )
                 }
             }
@@ -312,24 +398,62 @@ fun AdminScreen(
                     onUpdateOrderStatus = onUpdateOrderStatus,
                     onDeleteOrder = onDeleteOrder,
                 )
-                1 -> AdminNotificationsTab(
+                1 -> AdminStoreControlTab(
+                    storeConfig = storeConfig,
+                    catalogProducts = catalogProducts,
+                    storeOrdersState = storeOrdersState,
+                    netflixInventoryState = netflixInventoryState,
+                    providersHealth = storeProvidersHealth,
+                    isGatewayBusy = isStoreGatewayBusy,
+                    onSaveStoreConfig = onSaveStoreConfig,
+                    onSetFulfillmentMode = onSetFulfillmentMode,
+                    onTopUpMeruUsd = onTopUpMeruUsd,
+                    onTransferMeruToReloadly = onTransferMeruToReloadly,
+                    onTestAllApis = onTestAllStoreApis,
+                    onFulfillStarlinkViaMeru = onFulfillStarlinkViaMeru,
+                    onAssignNetflixAndDeliver = onAssignNetflixAndDeliver,
+                    onDeliverManualCode = onDeliverManualStoreCode,
+                    onRetryStoreOrderApi = onRetryStoreOrderApi,
+                    onRejectStoreOrder = onRejectStoreOrder,
+                    onDeleteStoreOrder = onDeleteStoreOrder,
+                    onAddStoreProduct = onAddStoreProduct,
+                    onDeleteStoreProduct = onDeleteStoreProduct,
+                    onAddNetflixProfile = onAddNetflixProfile,
+                    onDeleteNetflixProfile = onDeleteNetflixProfile,
+                )
+                2 -> AdminInvestTab(
+                    investmentsState = investmentsState,
+                    onApproveInvestment = onApproveInvestment,
+                    onRejectInvestment = onRejectInvestment,
+                    onDeleteInvestment = onDeleteInvestment,
+                )
+                3 -> AdminNotificationsTab(
                     usersState = usersState,
                     notificationsState = adminNotificationsState,
                     onSendNotification = onSendNotification,
                     onDeleteNotification = onDeleteNotification,
                 )
-                2 -> AdminRatesTab(
+                4 -> AdminRatesTab(
                     config = config,
                     onSaveConfig = onSaveConfig,
                 )
-                3 -> AdminUsersAndLedgerTab(
+                5 -> AdminApiGatewaysTab(
+                    config = config,
+                    paymentSessionsState = paymentSessionsState,
+                    webhookEventsState = webhookEventsState,
+                    onSaveConfig = onSaveConfig,
+                    onDeletePaymentSession = onDeletePaymentSession,
+                    onDeleteWebhookEvent = onDeleteWebhookEvent,
+                )
+                6 -> AdminUsersAndLedgerTab(
                     usersState = usersState,
                     ledgerState = ledgerState,
                     onToggleUserBlocked = onToggleUserBlocked,
+                    onAdjustGatewayBalance = onAdjustGatewayBalance,
                     onDeleteUser = onDeleteUser,
                     onDeleteLedgerEntry = onDeleteLedgerEntry,
                 )
-                4 -> AdminSecurityGuideTab(
+                7 -> AdminSecurityGuideTab(
                     checkedItems = checkedSecurityItems,
                     onToggleSecurityItem = onToggleSecurityItem,
                     onResetChecklist = onResetSecurityChecklist,
@@ -405,18 +529,24 @@ private fun AdminOrdersTab(
                     Text("Aucune commande client pour le moment.", color = TextSecondary)
                 }
             } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(ordersState.data, key = { it.id }) { order ->
-                        AdminOrderItemCard(
-                            order = order,
-                            onCompleteOrder = onCompleteOrder,
-                            onUpdateOrderStatus = onUpdateOrderStatus,
-                            onDeleteClick = { orderToDelete = order },
-                        )
+                val listState = rememberLazyListState()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(ordersState.data, key = { it.id }) { order ->
+                            AdminOrderItemCard(
+                                order = order,
+                                onCompleteOrder = onCompleteOrder,
+                                onUpdateOrderStatus = onUpdateOrderStatus,
+                                onDeleteClick = { orderToDelete = order },
+                            )
+                        }
                     }
+                    ScrollToTopButton(listState = listState)
                 }
             }
         }
@@ -435,28 +565,75 @@ private fun AdminOrderItemCard(
 
     Surface(
         color = ObsidianSurface,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, ObsidianOutline),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            val isTopUp = order.orderType == "TOPUP" || order.sendMethod == order.receiveMethod
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = order.orderCode,
+                            fontFamily = JetBrainsMonoFamily,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontSize = 13.sp,
+                                lineHeight = 17.sp,
+                            ),
+                            color = EmeraldPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (isTopUp) {
+                            Surface(color = GoldContainer, shape = RoundedCornerShape(50)) {
+                                Text(
+                                    text = "RECHARGE TOPUP",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 9.sp,
+                                        lineHeight = 11.sp,
+                                    ),
+                                    color = GoldAccent,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        } else if (order.gatewayMode == "WALLET") {
+                            Surface(color = EmeraldContainer, shape = RoundedCornerShape(50)) {
+                                Text(
+                                    text = "WALLET DÉBITÉ",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 9.sp,
+                                        lineHeight = 11.sp,
+                                    ),
+                                    color = EmeraldPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                    }
                     Text(
-                        text = order.orderCode,
-                        fontFamily = JetBrainsMonoFamily,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = EmeraldPrimary,
+                        text = order.userEmail,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 10.5.sp,
+                            lineHeight = 14.sp,
+                        ),
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    Text(order.userEmail, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    OrderStatusBadge(status = status)
+                    OrderStatusBadge(status = status, compact = true)
                     IconButton(
                         onClick = onDeleteClick,
                         modifier = Modifier
@@ -467,42 +644,62 @@ private fun AdminOrderItemCard(
                             imageVector = Icons.Rounded.DeleteOutline,
                             contentDescription = "Supprimer l'ordre",
                             tint = RubyError,
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "${PaymentMethod.fromId(order.sendMethod).label} (${formatNum(order.sendAmount)} ${order.sendCurrency}) → ${PaymentMethod.fromId(order.receiveMethod).label} (${formatNum(order.receiveAmount)} ${order.receiveCurrency})",
+                text = if (isTopUp) {
+                    "Recharge ${PaymentMethod.fromId(order.sendMethod).label} : ${formatNum(order.sendAmount)} ${order.sendCurrency} → Crédit net +${formatNum(order.receiveAmount)} ${order.receiveCurrency}"
+                } else {
+                    "${PaymentMethod.fromId(order.sendMethod).label} (${formatNum(order.sendAmount)} ${order.sendCurrency}) → ${PaymentMethod.fromId(order.receiveMethod).label} (${formatNum(order.receiveAmount)} ${order.receiveCurrency})"
+                },
                 fontFamily = JetBrainsMonoFamily,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp,
+                ),
                 color = TextPrimary,
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = "Compte destination : ${order.destAccount}",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.sp,
+                ),
                 color = TextSecondary,
             )
             if (order.externalTxRef.isNotBlank()) {
                 Text(
                     text = "Référence client : ${order.externalTxRef}",
                     fontFamily = JetBrainsMonoFamily,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                    ),
                     color = GoldAccent,
                 )
             }
 
             if (status != OrderStatus.COMPLETED) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = noteInput,
                     onValueChange = { noteInput = it },
-                    label = { Text("Note Admin (optionnel)") },
+                    label = {
+                        Text(
+                            text = "Note Admin (optionnel)",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
+                        )
+                    },
+                    textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = EmeraldPrimary,
                         unfocusedBorderColor = ObsidianOutline,
@@ -511,41 +708,81 @@ private fun AdminOrderItemCard(
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Max),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Button(
                         onClick = { onCompleteOrder(order, noteInput) },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = EmeraldPrimary,
                             contentColor = ObsidianBg,
                         ),
-                        modifier = Modifier.weight(1f).testTag("admin_complete_${order.orderCode}"),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .heightIn(min = 48.dp)
+                            .testTag("admin_complete_${order.orderCode}"),
                     ) {
-                        Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Compléter", fontWeight = FontWeight.Bold)
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isTopUp) "Créditer" else "Compléter",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = 11.sp,
+                                lineHeight = 13.sp,
+                            ),
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
 
                     OutlinedButton(
                         onClick = { onUpdateOrderStatus(order.id, OrderStatus.PAID_IN, noteInput) },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                         border = BorderStroke(1.dp, SkyInfo),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = SkyInfo),
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .heightIn(min = 48.dp),
                     ) {
-                        Text("Reçu")
+                        Text(
+                            text = "Reçu",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = 11.sp,
+                                lineHeight = 13.sp,
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
 
                     OutlinedButton(
                         onClick = { onUpdateOrderStatus(order.id, OrderStatus.REJECTED, noteInput) },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                         border = BorderStroke(1.dp, RubyError),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = RubyError),
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .heightIn(min = 48.dp),
                     ) {
-                        Text("Refuser")
+                        Text(
+                            text = "Refuser",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = 11.sp,
+                                lineHeight = 13.sp,
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -586,13 +823,16 @@ private fun AdminRatesTab(
         meruTag = config.meruTag
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+    val scrollState = rememberScrollState()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
         Text("Taux de change (USD / HTG / EUR)", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AdminDecimalField("Achat HTG", buyRate, { buyRate = it }, Modifier.weight(1f))
@@ -641,16 +881,25 @@ private fun AdminRatesTab(
             },
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = ObsidianBg),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .heightIn(min = 52.dp)
                 .testTag("admin_save_rates_button"),
         ) {
             Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Publier les taux en direct", fontWeight = FontWeight.Bold)
+            Text(
+                text = "Publier les taux en direct",
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                textAlign = TextAlign.Center,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Spacer(modifier = Modifier.height(20.dp))
+    }
+        ScrollToTopButton(scrollState = scrollState)
     }
 }
 
@@ -668,11 +917,15 @@ private fun AdminNotificationsTab(
     var isAlert by remember { mutableStateOf(false) }
 
     val usersList = (usersState as? UiState.Success)?.data.orEmpty()
+    val listState = rememberLazyListState()
 
-    LazyColumn(
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
         item {
             Surface(
                 color = ObsidianSurface,
@@ -776,7 +1029,7 @@ private fun AdminNotificationsTab(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Text("Marquer comme alerte urgente", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
                             Text("Affiche un contour rouge chez le client", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                         }
@@ -809,14 +1062,21 @@ private fun AdminNotificationsTab(
                         enabled = titleInput.trim().length >= 2 && messageInput.trim().length >= 2,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = ObsidianBg),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
+                            .heightIn(min = 50.dp)
                             .testTag("admin_send_notif_button"),
                     ) {
                         Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Envoyer la notification", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Envoyer la notification",
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            textAlign = TextAlign.Center,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -909,18 +1169,99 @@ private fun AdminNotificationsTab(
             }
         }
     }
+        ScrollToTopButton(listState = listState)
+    }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AdminUsersAndLedgerTab(
     usersState: UiState<List<UserProfile>>,
     ledgerState: UiState<List<LedgerEntry>>,
     onToggleUserBlocked: (String, Boolean) -> Unit,
+    onAdjustGatewayBalance: (String, PaymentMethod, Double) -> Unit,
     onDeleteUser: (String) -> Unit,
     onDeleteLedgerEntry: (String) -> Unit,
 ) {
     var userToDelete by remember { mutableStateOf<UserProfile?>(null) }
     var ledgerToDelete by remember { mutableStateOf<LedgerEntry?>(null) }
+    var userForBalanceDialog by remember { mutableStateOf<UserProfile?>(null) }
+
+    userForBalanceDialog?.let { targetUser ->
+        var selectedMethod by remember(targetUser.userId) { mutableStateOf(PaymentMethod.MONCASH) }
+        var amountText by remember(targetUser.userId) { mutableStateOf(targetUser.balanceFor(PaymentMethod.MONCASH).toString()) }
+
+        AlertDialog(
+            onDismissRequest = { userForBalanceDialog = null },
+            containerColor = ObsidianSurface,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary,
+            title = { Text("Soldes de ${targetUser.displayName.ifBlank { targetUser.email }}", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Sélectionnez la passerelle dont vous souhaitez modifier le solde :",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        PaymentMethod.entries.forEach { method ->
+                            FilterChip(
+                                selected = selectedMethod == method,
+                                onClick = {
+                                    selectedMethod = method
+                                    amountText = targetUser.balanceFor(method).toString()
+                                },
+                                label = { Text(method.label, maxLines = 1) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = EmeraldContainer,
+                                    selectedLabelColor = EmeraldPrimary,
+                                ),
+                            )
+                        }
+                    }
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = { raw -> amountText = raw.filter { it.isDigit() || it == '.' } },
+                        label = { Text("Nouveau solde (${selectedMethod.defaultCurrency.code})") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EmeraldPrimary,
+                            unfocusedBorderColor = ObsidianOutline,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("admin_adjust_balance_input"),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val parsed = amountText.toDoubleOrNull()
+                        if (parsed != null && parsed >= 0.0) {
+                            onAdjustGatewayBalance(targetUser.userId, selectedMethod, parsed)
+                            userForBalanceDialog = null
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = ObsidianBg),
+                    modifier = Modifier.testTag("admin_confirm_adjust_balance_btn"),
+                ) {
+                    Text("Enregistrer", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { userForBalanceDialog = null }) {
+                    Text("Annuler", color = TextSecondary)
+                }
+            },
+        )
+    }
 
     userToDelete?.let { target ->
         AdminConfirmDeleteDialog(
@@ -946,10 +1287,15 @@ private fun AdminUsersAndLedgerTab(
         )
     }
 
-    LazyColumn(
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    val listState = rememberLazyListState()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
         item {
             Text("Utilisateurs inscrits", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
         }
@@ -965,51 +1311,102 @@ private fun AdminUsersAndLedgerTab(
                         border = BorderStroke(1.dp, ObsidianOutline),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Row(
-                            modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(user.displayName, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-                                Text(user.email, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                                if (user.phoneNumber.isNotBlank()) {
+                        Column(modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
                                     Text(
-                                        text = user.phoneNumber,
-                                        fontFamily = JetBrainsMonoFamily,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = EmeraldPrimary,
+                                        text = user.displayName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = TextPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
+                                    Text(
+                                        text = user.email,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    if (user.phoneNumber.isNotBlank()) {
+                                        Text(
+                                            text = user.phoneNumber,
+                                            fontFamily = JetBrainsMonoFamily,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = EmeraldPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
                                 }
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (user.isBlocked) Icons.Rounded.Block else Icons.Rounded.Verified,
-                                    contentDescription = null,
-                                    tint = if (user.isBlocked) RubyError else EmeraldPrimary,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Switch(
-                                    checked = user.isBlocked,
-                                    enabled = !isOwnerAdmin,
-                                    onCheckedChange = { onToggleUserBlocked(user.userId, it) },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = TextPrimary,
-                                        checkedTrackColor = RubyError,
-                                    ),
-                                )
-                                if (!isOwnerAdmin) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     IconButton(
-                                        onClick = { userToDelete = user },
+                                        onClick = { userForBalanceDialog = user },
                                         modifier = Modifier
                                             .size(48.dp)
-                                            .testTag("admin_delete_user_${user.userId}"),
+                                            .testTag("admin_wallet_user_${user.userId}"),
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.DeleteOutline,
-                                            contentDescription = "Supprimer le profil client",
-                                            tint = RubyError,
+                                            imageVector = Icons.Rounded.AccountBalanceWallet,
+                                            contentDescription = "Ajuster les soldes passerelles",
+                                            tint = GoldAccent,
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = if (user.isBlocked) Icons.Rounded.Block else Icons.Rounded.Verified,
+                                        contentDescription = null,
+                                        tint = if (user.isBlocked) RubyError else EmeraldPrimary,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Switch(
+                                        checked = user.isBlocked,
+                                        enabled = !isOwnerAdmin,
+                                        onCheckedChange = { onToggleUserBlocked(user.userId, it) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = TextPrimary,
+                                            checkedTrackColor = RubyError,
+                                        ),
+                                    )
+                                    if (!isOwnerAdmin) {
+                                        IconButton(
+                                            onClick = { userToDelete = user },
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .testTag("admin_delete_user_${user.userId}"),
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.DeleteOutline,
+                                                contentDescription = "Supprimer le profil client",
+                                                tint = RubyError,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(end = 8.dp),
+                            ) {
+                                PaymentMethod.entries.forEach { method ->
+                                    val bal = user.balanceFor(method)
+                                    Surface(
+                                        color = ObsidianSurfaceElevated,
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.dp, ObsidianOutline.copy(alpha = 0.5f)),
+                                    ) {
+                                        Text(
+                                            text = "${method.label}: ${formatNum(bal)} ${method.defaultCurrency.code}",
+                                            fontFamily = JetBrainsMonoFamily,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (bal > 0.0) EmeraldPrimary else TextMuted,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                         )
                                     }
                                 }
@@ -1046,7 +1443,7 @@ private fun AdminUsersAndLedgerTab(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
                                     Text(
                                         text = "${entry.accountName} • ${entry.orderCode}",
                                         fontFamily = JetBrainsMonoFamily,
@@ -1066,6 +1463,7 @@ private fun AdminUsersAndLedgerTab(
                                             fontWeight = FontWeight.Bold,
                                             style = MaterialTheme.typography.labelMedium,
                                             color = if (entry.entryType == "CREDIT") EmeraldPrimary else RubyError,
+                                            maxLines = 1,
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                         )
                                     }
@@ -1089,6 +1487,361 @@ private fun AdminUsersAndLedgerTab(
             }
         }
     }
+        ScrollToTopButton(listState = listState)
+    }
+}
+
+@Composable
+private fun AdminApiGatewaysTab(
+    config: ExchangeConfig,
+    paymentSessionsState: UiState<List<PaymentSession>>,
+    webhookEventsState: UiState<List<WebhookEvent>>,
+    onSaveConfig: (ExchangeConfig) -> Unit,
+    onDeletePaymentSession: (String) -> Unit,
+    onDeleteWebhookEvent: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var backendUrl by remember(config) { mutableStateOf(config.backendBaseUrl) }
+    var gatewayMode by remember(config) { mutableStateOf(config.gatewayMode) }
+    var moncashOnline by remember(config) { mutableStateOf(config.moncashOnlineEnabled) }
+    var natcashOnline by remember(config) { mutableStateOf(config.natcashOnlineEnabled) }
+    var binanceOnline by remember(config) { mutableStateOf(config.binanceOnlineEnabled) }
+    var nowpaymentsOnline by remember(config) { mutableStateOf(config.nowpaymentsOnlineEnabled) }
+
+    var sessionToDelete by remember { mutableStateOf<PaymentSession?>(null) }
+    var webhookToDelete by remember { mutableStateOf<WebhookEvent?>(null) }
+
+    LaunchedEffect(config) {
+        backendUrl = config.backendBaseUrl
+        gatewayMode = config.gatewayMode
+        moncashOnline = config.moncashOnlineEnabled
+        natcashOnline = config.natcashOnlineEnabled
+        binanceOnline = config.binanceOnlineEnabled
+        nowpaymentsOnline = config.nowpaymentsOnlineEnabled
+    }
+
+    sessionToDelete?.let { target ->
+        AdminConfirmDeleteDialog(
+            title = "Supprimer cette session API ?",
+            message = "Session ${target.orderCode} (${target.provider}) sera supprimée.",
+            onConfirm = {
+                onDeletePaymentSession(target.id)
+                sessionToDelete = null
+            },
+            onDismiss = { sessionToDelete = null },
+        )
+    }
+
+    webhookToDelete?.let { target ->
+        AdminConfirmDeleteDialog(
+            title = "Supprimer ce log Webhook ?",
+            message = "Événement ${target.provider} • ${target.eventId} sera supprimé.",
+            onConfirm = {
+                onDeleteWebhookEvent(target.id)
+                webhookToDelete = null
+            },
+            onDismiss = { webhookToDelete = null },
+        )
+    }
+
+    val listState = rememberLazyListState()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+        item {
+            Surface(
+                color = ObsidianSurface,
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.dp, SkyInfo.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Language, contentDescription = null, tint = SkyInfo)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Passerelles En Ligne & Backend",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextPrimary,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Les clés secrètes (MonCash, NatCash, Binance, NOWPayments IPN) restent isolées sur le Backend. L'APK s'authentifie uniquement via Firebase ID Token (zéro fuite de secret).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = backendUrl,
+                        onValueChange = { backendUrl = it.take(300) },
+                        label = { Text("URL Backend HTTPS (Cloud Functions / Run)") },
+                        placeholder = { Text("https://api.alevini.com", color = TextMuted) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SkyInfo,
+                            unfocusedBorderColor = ObsidianOutline,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("admin_backend_url_input"),
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("Environnement API", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("SANDBOX", "LIVE").forEach { mode ->
+                            FilterChip(
+                                selected = gatewayMode == mode,
+                                onClick = { gatewayMode = mode },
+                                label = { Text(mode) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = if (mode == "LIVE") EmeraldContainer else GoldContainer,
+                                    selectedLabelColor = if (mode == "LIVE") EmeraldPrimary else GoldAccent,
+                                ),
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    GatewayToggleRow("MonCash Online (OAuth2 + Retrieve)", moncashOnline) { moncashOnline = it }
+                    GatewayToggleRow("NatCash Online (HMAC-SHA256)", natcashOnline) { natcashOnline = it }
+                    GatewayToggleRow("Binance Pay OpenAPI v3 (HMAC-SHA512)", binanceOnline) { binanceOnline = it }
+                    GatewayToggleRow("NOWPayments IPN (HMAC-SHA512)", nowpaymentsOnline) { nowpaymentsOnline = it }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            onSaveConfig(
+                                config.copy(
+                                    backendBaseUrl = backendUrl.trim(),
+                                    gatewayMode = gatewayMode,
+                                    moncashOnlineEnabled = moncashOnline,
+                                    natcashOnlineEnabled = natcashOnline,
+                                    binanceOnlineEnabled = binanceOnline,
+                                    nowpaymentsOnlineEnabled = nowpaymentsOnline,
+                                )
+                            )
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = ObsidianBg),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 50.dp)
+                            .testTag("admin_save_gateways_button"),
+                    ) {
+                        Icon(Icons.Rounded.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Enregistrer la config API",
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            textAlign = TextAlign.Center,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            val base = backendUrl.trim().trimEnd('/').ifBlank { "https://VOTRE-BACKEND" }
+            val webhooks = listOf(
+                "MonCash" to "$base/webhooks/moncash",
+                "NatCash" to "$base/webhooks/natcash",
+                "Binance Pay" to "$base/webhooks/binance",
+                "NOWPayments IPN" to "$base/webhooks/nowpayments",
+            )
+            Surface(
+                color = ObsidianSurfaceElevated,
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, ObsidianOutline),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Webhook, contentDescription = null, tint = GoldAccent)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("URLs Webhooks à enregistrer", style = MaterialTheme.typography.titleSmall, color = GoldAccent)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    webhooks.forEach { (label, url) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(label, style = MaterialTheme.typography.labelMedium, color = TextPrimary)
+                                Text(
+                                    text = url,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = EmeraldPrimary,
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    cb.setPrimaryClip(ClipData.newPlainText(label, url))
+                                },
+                                modifier = Modifier.size(48.dp),
+                            ) {
+                                Icon(Icons.Rounded.ContentCopy, contentDescription = "Copier URL $label", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Text("Sessions API clients", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+        }
+        when (paymentSessionsState) {
+            is UiState.Loading -> item { CircularProgressIndicator(color = EmeraldPrimary) }
+            is UiState.Error -> item { Text(paymentSessionsState.message, color = RubyError) }
+            is UiState.Success -> {
+                if (paymentSessionsState.data.isEmpty()) {
+                    item { Text("Aucune session de paiement en ligne pour le moment.", color = TextMuted) }
+                } else {
+                    items(paymentSessionsState.data, key = { "sess_${it.id}" }) { session ->
+                        Surface(
+                            color = ObsidianSurface,
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.dp, ObsidianOutline),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${session.orderCode} • ${PaymentMethod.fromId(session.provider).label} (${session.gatewayMode})",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = EmeraldPrimary,
+                                    )
+                                    Text(
+                                        text = "${formatNum(session.amount)} ${session.currency} • Statut: ${session.status} • Webhook: ${if (session.webhookVerified) "Vérifié" else "En attente"}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary,
+                                    )
+                                    if (session.gatewayOrderId.isNotBlank()) {
+                                        Text(
+                                            text = "Réf API : ${session.gatewayOrderId}",
+                                            fontFamily = JetBrainsMonoFamily,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = TextMuted,
+                                        )
+                                    }
+                                }
+                                IconButton(
+                                    onClick = { sessionToDelete = session },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(Icons.Rounded.DeleteOutline, contentDescription = "Supprimer session", tint = RubyError)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = ObsidianOutline)
+            Text("Logs Webhooks vérifiés (Backend)", style = MaterialTheme.typography.titleMedium, color = GoldAccent)
+        }
+        when (webhookEventsState) {
+            is UiState.Loading -> item { CircularProgressIndicator(color = EmeraldPrimary) }
+            is UiState.Error -> item { Text(webhookEventsState.message, color = RubyError) }
+            is UiState.Success -> {
+                if (webhookEventsState.data.isEmpty()) {
+                    item { Text("Aucun événement webhook reçu pour le moment.", color = TextMuted) }
+                } else {
+                    items(webhookEventsState.data, key = { "wh_${it.id}" }) { evt ->
+                        Surface(
+                            color = ObsidianSurfaceElevated,
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.dp, ObsidianOutline),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${evt.provider.uppercase()} • ${evt.outcome}",
+                                        fontFamily = JetBrainsMonoFamily,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = if (evt.signatureValid) EmeraldPrimary else RubyError,
+                                    )
+                                    Text(
+                                        text = "Montant: ${formatNum(evt.amountPaid)} ${evt.currency} • Signature: ${if (evt.signatureValid) "HMAC/RSA OK" else "INVALIDE"}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary,
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { webhookToDelete = evt },
+                                    modifier = Modifier.size(48.dp),
+                                ) {
+                                    Icon(Icons.Rounded.DeleteOutline, contentDescription = "Supprimer webhook", tint = RubyError)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+        ScrollToTopButton(listState = listState)
+    }
+}
+
+@Composable
+private fun GatewayToggleRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary,
+            modifier = Modifier.weight(1f).padding(end = 8.dp),
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = ObsidianBg,
+                checkedTrackColor = EmeraldPrimary,
+            ),
+        )
+    }
 }
 
 @Composable
@@ -1101,7 +1854,7 @@ private fun AdminDecimalField(
     OutlinedTextField(
         value = value,
         onValueChange = { s -> onValueChange(s.filter { it.isDigit() || it == '.' }) },
-        label = { Text(label, maxLines = 1) },
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         shape = RoundedCornerShape(12.dp),
@@ -1153,12 +1906,15 @@ private fun AdminSecurityGuideTab(
         checkedItems.size.coerceAtMost(totalItems)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-    ) {
+    val scrollState = rememberScrollState()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(16.dp),
+        ) {
         Surface(
             color = ObsidianSurface,
             shape = RoundedCornerShape(20.dp),
@@ -1251,6 +2007,9 @@ private fun AdminSecurityGuideTab(
                                                 text = group.title,
                                                 style = MaterialTheme.typography.labelLarge,
                                                 color = TextPrimary,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(end = 8.dp),
                                             )
                                             Icon(
                                                 imageVector = if (isOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
@@ -1285,6 +2044,7 @@ private fun AdminSecurityGuideTab(
                                                             style = MaterialTheme.typography.bodySmall,
                                                             color = if (checked) TextMuted else TextPrimary,
                                                             textDecoration = if (checked) TextDecoration.LineThrough else TextDecoration.None,
+                                                            modifier = Modifier.weight(1f),
                                                         )
                                                     }
                                                 }
@@ -1305,5 +2065,7 @@ private fun AdminSecurityGuideTab(
             }
         }
         Spacer(modifier = Modifier.height(20.dp))
+    }
+        ScrollToTopButton(scrollState = scrollState)
     }
 }

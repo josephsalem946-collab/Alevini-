@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alevini - Digital Store & Contrôle Fournisseurs</title>
+    <!-- Chargement de Google Fonts (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chargement de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        deepNight: '#0A0F1E',
+                        headerNight: '#0D1428',
+                        kpiNight: '#080C18',
+                        bentoCard: '#11182D',
+                        bentoHover: '#15203B',
+                        accentGold: '#F59E0B',
+                        accentCyan: '#06B6D4',
+                        accentEmerald: '#10B981',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chargement des icônes Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Personnalisation discrète de la barre de défilement */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0A0F1E;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1E293B;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+        /* Masquer scrollbar horizontale sur mobile tout en gardant le défilement */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-deepNight text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-4 selection:bg-accentGold selection:text-slate-950">
+
+    <!-- ÉCRAN D'ACCUEIL / LANCEUR D'APPLICATION -->
+    <div class="max-w-xl w-full text-center space-y-6 p-8 rounded-3xl bg-bentoCard border border-slate-800/80 shadow-2xl">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-accentEmerald text-xs font-semibold">
+            <span class="h-2 w-2 rounded-full bg-accentEmerald animate-ping"></span>
+            Écosystème Alevini Connecté
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+            Alevini <span class="text-transparent bg-clip-text bg-gradient-to-r from-accentGold to-amber-300">Digital Store</span>
+        </h1>
+        <p class="text-sm text-slate-400 leading-relaxed">
+            Plateforme intégrée de revente automatisée : Coins & Diamants Gaming, Abonnements Netflix, Factures Starlink, passerelles locales/crypto et contrôle total des fournisseurs.
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button onclick="openModal('gaming')" class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-sm shadow-lg shadow-amber-500/20 transition transform hover:-translate-y-0.5 flex items-center gap-2">
+                <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                Ouvrir Boutique Client
+            </button>
+            <button onclick="openModal('admin')" class="px-6 py-3.5 rounded-2xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-white font-bold text-sm transition flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-accentGold"></i>
+                Panneau Admin & Fournisseurs
+            </button>
+        </div>
+    </div>
+
+    <!-- SYSTÈME DE NOTIFICATION TOAST (Remplace alert()) -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- MODAL PRINCIPAL ALEVINI -->
+    <div id="aleviniModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 transition-opacity duration-200">
+        <div class="w-full max-w-6xl max-h-[95vh] flex flex-col rounded-3xl bg-deepNight border border-slate-800/90 shadow-2xl overflow-hidden">
+            
+            <!-- 1. HEADER DU MODAL -->
+            <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-800 bg-headerNight">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500/20 to-cyan-500/20 border border-amber-500/30 flex items-center justify-center">
+                        <i data-lucide="zap" class="w-5 h-5 text-accentGold"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-base sm:text-xl font-extrabold tracking-tight text-white">Alevini Digital Hub</h2>
+                            <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-accentEmerald text-[10px] font-bold border border-emerald-500/20">
+                                ● LIVE API
+                            </span>
+                        </div>
+                        <p class="text-[11px] sm:text-xs text-slate-400">
+                            Taux actif : <span id="headerRateDisplay" class="text-accentGold font-semibold">1 USD = 143.64 HTG</span> (Marge <span id="headerMarkupDisplay">+8%</span> incluse)
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="switchTab('orders')" class="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-xs font-semibold text-slate-200 flex items-center gap-1.5 transition">
+                        <i data-lucide="receipt" class="w-3.5 h-3.5 text-accentCyan"></i>
+                        <span class="hidden sm:inline">Mes Commandes</span>
+                        <span id="ordersBadge" class="px-1.5 py-0.2 rounded-full bg-accentCyan text-slate-950 font-extrabold text-[10px]">2</span>
+                    </button>
+                    <button onclick="closeModal()" class="p-2 rounded-xl bg-slate-800/60 hover:bg-rose-500/20 hover:text-rose-400 text-slate-300 transition" title="Fermer">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. DARK MODE KPI DASHBOARD (TEMPS RÉEL) -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 px-4 sm:px-6 py-3.5 bg-kpiNight border-b border-slate-800/80">
+                <!-- KPI 1: API Reloadly -->
+                <div class="p-3 rounded-2xl bg-bentoCard border border-cyan-500/25 flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-[11px] font-medium text-slate-400">
+                        <span>API Reloadly / Top-Up</span>
+                        <i data-lucide="gamepad-2" class="w-4 h-4 text-accentCyan"></i>
+                    </div>
+                    <div class="mt-1.5 flex items-baseline justify-between">
+                        <span id="kpiReloadlyBalance" class="text-lg sm:text-xl font-extrabold text-accentCyan">142.50 $</span>
+                        <span id="kpiReloadlyStatus" class="text-[10px] font-semibold text-accentEmerald">● 165ms</span>
+                    </div>
+                </div>
+
+                <!-- KPI 2: Carte Meru USD -->
+                <div class="p-3 rounded-2xl bg-bentoCard border border-amber-500/25 flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-[11px] font-medium text-slate-400">
+                        <span>Carte Meru USD</span>
+                        <i data-lucide="credit-card" class="w-4 h-4 text-accentGold"></i>
+                    </div>
+                    <div class="mt-1.5 flex items-baseline justify-between">
+                        <span id="kpiMeruBalance" class="text-lg sm:text-xl font-extrabold text-accentGold">485.00 $</span>
+                        <span class="text-[10px] font-medium text-slate-400">Visa VCC</span>
+                    </div>
+                </div>
+
+                <!-- KPI 3: Stock Profils Netflix -->
+                <div class="p-3 rounded-2xl bg-bentoCard border border-emerald-500/25 flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-[11px] font-medium text-slate-400">
+                        <span>Profils Netflix Dispos</span>
+                        <i data-lucide="tv" class="w-4 h-4 text-accentEmerald"></i>
+                    </div>
+                    <div class="mt-1.5 flex items-baseline justify-between">
+                        <span id="kpiNetflixStock" class="text-lg sm:text-xl font-extrabold text-accentEmerald">4 Dispos</span>
+                        <span class="text-[10px] font-medium text-slate-400">Auto-livraison</span>
+                    </div>
+                </div>
+
+                <!-- KPI 4: File Starlink -->
+                <div class="p-3 rounded-2xl bg-bentoCard border border-purple-500/25 flex flex-col justify-between">
+                    <div class="flex items-center justify-between text-[11px] font-medium text-slate-400">
+                        <span>Starlink en attente</span>
+                        <i data-lucide="wifi" class="w-4 h-4 text-purple-400"></i>
+                    </div>
+                    <div class="mt-1.5 flex items-baseline justify-between">
+                        <span id="kpiStarlinkPending" class="text-lg sm:text-xl font-extrabold text-white">2 Dossiers</span>
+                        <span class="text-[10px] font-semibold text-accentGold">Action Meru</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. HORIZONTAL TAB BAR -->
+            <div class="flex items-center gap-1 sm:gap-2 px-4 sm:px-6 pt-2.5 border-b border-slate-800 bg-headerNight overflow-x-auto no-scrollbar">
+                <button onclick="switchTab('gaming')" id="tab-gaming" class="tab-btn flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap rounded-t-xl">
+                    <i data-lucide="gamepad-2" class="w-4 h-4"></i> Coins & Jeux
+                </button>
+                <button onclick="switchTab('netflix')" id="tab-netflix" class="tab-btn flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap rounded-t-xl">
+                    <i data-lucide="tv" class="w-4 h-4"></i> Abonnements Netflix
+                </button>
+                <button onclick="switchTab('starlink')" id="tab-starlink" class="tab-btn flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap rounded-t-xl">
+                    <i data-lucide="wifi" class="w-4 h-4"></i> Factures Starlink
+                </button>
+                <button onclick="switchTab('orders')" id="tab-orders" class="tab-btn flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap rounded-t-xl">
+                    <i data-lucide="history" class="w-4 h-4"></i> Mes Commandes
+                </button>
+                <button onclick="switchTab('admin')" id="tab-admin" class="tab-btn ml-auto flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition whitespace-nowrap rounded-t-xl">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i> Admin & Contrôle Fournisseurs
+                </button>
+            </div>
+
+            <!-- 4. ZONE DE CONTENU DÉFILANTE (2-COLUMN BENTO CARD GRID) -->
+            <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+
+                <!-- ========================================== -->
+                <!-- ONGLET 1 : COINS & RECHARGES DE JEUX       -->
+                <!-- ========================================== -->
+                <div id="view-gaming" class="tab-view space-y-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-base font-bold text-white">Recharges Directes & Cartes Gaming</h3>
+                            <p class="text-xs text-slate-400">Livraison automatisée via API B2B en moins de 10 secondes.</p>
+                        </div>
+                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-accentCyan bg-cyan-500/10 border border-cyan-500/20 px-3 py-1 rounded-full w-fit">
+                            <i data-lucide="zap" class="w-3.5 h-3.5"></i> Créditation Instantanée
+                        </span>
+                    </div>
+
+                    <!-- 2-Column Bento Card Grid : Catalogue Jeux -->
+                    <div id="gamingGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+                    <!-- Bento Card : Vérification ID Joueur -->
+                    <div class="p-5 rounded-2xl bg-bentoCard border border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label for="playerIdInput" class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                                Identifiant du Joueur (Player ID / UID) <span class="text-rose-400">*</span>
+                            </label>
+                            <span id="playerVerifiedBadge" class="hidden text-xs font-semibold text-accentEmerald flex items-center gap-1">
+                                <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Joueur trouvé : <span id="verifiedNickname" class="underline">ProGamer_HT</span>
+                            </span>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <input type="text" id="playerIdInput" placeholder="Ex: 2489104829 (Saisissez votre UID)" class="flex-1 px-4 py-3 rounded-xl bg-deepNight border border-slate-700 text-white text-sm focus:border-accentCyan focus:outline-none">
+                            <button onclick="verifyPlayerId()" class="px-5 py-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-accentCyan text-xs font-bold transition flex items-center justify-center gap-2">
+                                <i data-lucide="search" class="w-4 h-4"></i> Vérifier le Pseudo
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                            <i data-lucide="info" class="w-3.5 h-3.5 text-accentGold shrink-0"></i>
+                            Les recharges directes par UID sont irréversibles. Vérifiez votre pseudo avant de payer.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- ONGLET 2 : ABONNEMENTS NETFLIX             -->
+                <!-- ========================================== -->
+                <div id="view-netflix" class="tab-view space-y-5 hidden">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-base font-bold text-white">Abonnements Netflix & Cartes Cadeaux</h3>
+                            <p class="text-xs text-slate-400">Choisissez un profil privé 30 jours (stock géré par Meru) ou un code cadeau officiel.</p>
+                        </div>
+                        <span id="netflixHeaderBadge" class="inline-flex items-center gap-1.5 text-xs font-semibold text-accentEmerald bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full w-fit">
+                            4 profils prêts à livrer
+                        </span>
+                    </div>
+
+                    <!-- 2-Column Bento Card Grid : Offres Netflix -->
+                    <div id="netflixGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- ONGLET 3 : FACTURES STARLINK               -->
+                <!-- ========================================== -->
+                <div id="view-starlink" class="tab-view space-y-5 hidden">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-base font-bold text-white">Paiement de Facture Starlink</h3>
+                            <p class="text-xs text-slate-400">Payez votre abonnement en HTG ou Crypto. Règlement effectué via carte USD Meru.</p>
+                        </div>
+                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-accentGold bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full w-fit">
+                            <i data-lucide="clock" class="w-3.5 h-3.5"></i> Traitement Express (5-15 min)
+                        </span>
+                    </div>
+
+                    <!-- 2-Column Bento Card Grid : Forfaits Starlink -->
+                    <div id="starlinkGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+                    <!-- Bento Card : Informations Kit Starlink -->
+                    <div class="p-5 rounded-2xl bg-bentoCard border border-slate-800 space-y-3">
+                        <label for="starlinkAccountInput" class="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                            Email du compte Starlink ou Numéro de Kit (KIT-XXXX) <span class="text-rose-400">*</span>
+                        </label>
+                        <input type="text" id="starlinkAccountInput" placeholder="Ex: client@exemple.com ou KIT00192834" class="w-full px-4 py-3 rounded-xl bg-deepNight border border-slate-700 text-white text-sm focus:border-accentGold focus:outline-none">
+                        <p class="text-[11px] text-slate-400">
+                            Le reçu officiel Starlink sera déposé directement dans votre onglet <strong>Mes Commandes</strong> dès validation.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- ONGLET 4 : MES COMMANDES (COFFRE-FORT)     -->
+                <!-- ========================================== -->
+                <div id="view-orders" class="tab-view space-y-5 hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-base font-bold text-white">Coffre-fort & Historique des Livrables</h3>
+                            <p class="text-xs text-slate-400">Retrouvez vos codes PIN, accès Netflix et reçus Starlink à tout moment.</p>
+                        </div>
+                    </div>
+                    <div id="ordersListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- ONGLET 5 : ADMIN & CONTRÔLE FOURNISSEURS   -->
+                <!-- ========================================== -->
+                <div id="view-admin" class="tab-view space-y-6 hidden">
+                    
+                    <!-- LIGNE 1 : CONTRÔLE DES TAUX & GESTION API FOURNISSEURS -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        
+                        <!-- Bento Card : Taux de change & Marge Sécurité -->
+                        <div class="p-5 rounded-2xl bg-bentoCard border border-slate-800 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-bold text-white flex items-center gap-2 text-sm">
+                                    <i data-lucide="sliders" class="w-4 h-4 text-accentGold"></i>
+                                    Moteur de Prix & Marge HTG/USD
+                                </h3>
+                                <span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-500/15 text-accentGold border border-amber-500/30">
+                                    Sync Temps Réel
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="p-3 rounded-xl bg-deepNight border border-slate-800">
+                                    <label class="text-[11px] text-slate-400 block mb-1">Taux de base (1 USD)</label>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="adminBaseRate" value="133" min="100" max="200" onchange="updatePricingEngine()" class="w-full bg-transparent text-white font-bold text-base focus:outline-none">
+                                        <span class="text-xs text-slate-400 font-semibold">HTG</span>
+                                    </div>
+                                </div>
+                                <div class="p-3 rounded-xl bg-deepNight border border-slate-800">
+                                    <label class="text-[11px] text-slate-400 block mb-1">Taux Client Final</label>
+                                    <div id="adminEffectiveRate" class="text-base font-extrabold text-accentEmerald">
+                                        143.64 HTG
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-slate-300 font-medium">Marge sécurité (Couverture P2P & Frais) :</span>
+                                    <span id="adminMarkupValue" class="text-accentGold font-extrabold">+8%</span>
+                                </div>
+                                <input type="range" id="adminMarkupSlider" min="3" max="15" value="8" oninput="updatePricingEngine()" class="w-full accent-amber-400 cursor-pointer">
+                                <div class="flex justify-between text-[10px] text-slate-500">
+                                    <span>+3% (Min)</span>
+                                    <span>+8% (Recommandé)</span>
+                                    <span>+15% (Max)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bento Card : Gestion Carte Meru & Émission VCC -->
+                        <div class="p-5 rounded-2xl bg-bentoCard border border-slate-800 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-bold text-white flex items-center gap-2 text-sm">
+                                    <i data-lucide="credit-card" class="w-4 h-4 text-accentGold"></i>
+                                    Contrôle Carte Meru USD
+                                </h3>
+                                <span class="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-emerald-500/15 text-accentEmerald">
+                                    Visa Active •••• 4092
+                                </span>
+                            </div>
+
+                            <div class="p-3.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-slate-900 to-cyan-500/10 border border-amber-500/25 flex items-center justify-between">
+                                <div>
+                                    <div class="text-[11px] text-slate-400">Solde Disponible Meru</div>
+                                    <div id="adminMeruBalance" class="text-2xl font-extrabold text-white">485.00 $</div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="topUpMeru(100)" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold transition">
+                                        +100 $ P2P
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-2 pt-1">
+                                <button onclick="generateVirtualCard()" class="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-white transition flex items-center justify-center gap-1.5">
+                                    <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-accentGold"></i> Générer VCC Starlink
+                                </button>
+                                <button onclick="topUpReloadlyFromMeru(50)" class="flex-1 py-2.5 px-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-xs font-semibold text-accentCyan transition flex items-center justify-center gap-1.5">
+                                    <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i> Transférer 50$ → Reloadly
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LIGNE 2 : ÉTAT & INTERRUPTEURS DES API FOURNISSEURS ET PASSERELLES -->
+                    <div class="p-5 rounded-2xl bg-bentoCard border border-slate-800 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h3 class="font-bold text-white flex items-center gap-2 text-sm">
+                                    <i data-lucide="server" class="w-4 h-4 text-accentCyan"></i>
+                                    Contrôle des Fournisseurs B2B & Passerelles de Paiement
+                                </h3>
+                                <p class="text-xs text-slate-400">Activez, désactivez ou testez la latence de chaque connecteur API en direct.</p>
+                            </div>
+                            <button onclick="pingAllProviders()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-accentCyan flex items-center gap-1.5 transition">
+                                <i data-lucide="activity" class="w-3.5 h-3.5"></i> Tester toutes les API
+                            </button>
+                        </div>
+
+                        <div id="providersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+                    </div>
+
+                    <!-- LIGNE 3 : FILE STARLINK & INVENTAIRE NETFLIX -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        
+                        <!-- File d'attente Starlink (Action requise Meru) -->
+                        <div class="p-5 rounded-2xl bg-bentoCard border border-slate-800 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-bold text-white flex items-center gap-2 text-sm">
+                                    <i data-lucide="wifi" class="w-4 h-4 text-purple-400"></i>
+                                    File Starlink à régler (Meru)
+                                </h3>
+                                <span id="adminStarlinkBadge" class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-amber-500/20 text-accentGold">
+                                    2 en attente
+                                </span>
+                            </div>
+                            <div id="adminStarlinkQueue" class="space-y-2.5"></div>
+                        </div>
+
+                        <!-- Gestion Stock Comptes & Profils Netflix -->
+                        <div class="p-5 rounded-2xl bg-bentoCard border border-slate-800 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-bold text-white flex items-center gap-2 text-sm">
+                                    <i data-lucide="key" class="w-4 h-4 text-accentEmerald"></i>
+                                    Inventaire Profils Netflix (Stock Auto)
+                                </h3>
+                                <span id="adminNetflixBadge" class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-accentEmerald">
+                                    4 disponibles
+                                </span>
+                            </div>
+
+                            <!-- Formulaire d'ajout rapide de profil -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input type="text" id="newNfEmail" placeholder="Email compte Netflix" class="px-3 py-2 rounded-xl bg-deepNight border border-slate-700 text-xs text-white focus:border-accentEmerald focus:outline-none">
+                                <input type="text" id="newNfPass" placeholder="Mot de passe" class="px-3 py-2 rounded-xl bg-deepNight border border-slate-700 text-xs text-white focus:border-accentEmerald focus:outline-none">
+                                <div class="flex gap-1.5">
+                                    <input type="text" id="newNfPin" placeholder="PIN (4 chiffres)" maxlength="4" class="w-full px-3 py-2 rounded-xl bg-deepNight border border-slate-700 text-xs text-white focus:border-accentEmerald focus:outline-none">
+                                    <button onclick="addNetflixProfile()" class="px-3 py-2 rounded-xl bg-accentEmerald hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shrink-0" title="Ajouter au stock">
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="adminNetflixList" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- BARRE DE PAIEMENT CLIENT (3 PREMIERS TABS) -->
+                <!-- ========================================== -->
+                <div id="clientCheckoutBar" class="p-5 rounded-2xl bg-headerNight border border-slate-800 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            1. Sélectionnez votre passerelle de paiement
+                        </span>
+                        <span id="selectedProductSummary" class="text-xs font-semibold text-accentGold">
+                            Aucun produit sélectionné
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                        <button onclick="selectGateway('moncash')" id="gw-moncash" class="gw-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-rose-500"></span> Moncash online
+                        </button>
+                        <button onclick="selectGateway('natcash')" id="gw-natcash" class="gw-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-sky-500"></span> Natcash online
+                        </button>
+                        <button onclick="selectGateway('binance')" id="gw-binance" class="gw-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-400"></span> Binance Pay
+                        </button>
+                        <button onclick="selectGateway('nowpayments')" id="gw-nowpayments" class="gw-btn p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> NOWPayments
+                        </button>
+                    </div>
+
+                    <button id="payNowBtn" onclick="processClientCheckout()" disabled class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 disabled:opacity-40 disabled:cursor-not-allowed hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition">
+                        <i data-lucide="lock" class="w-4 h-4"></i>
+                        <span id="payNowBtnText">Sélectionnez une offre ci-dessus pour continuer</span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIQUE APPLICATIVE JAVASCRIPT -->
+    <script>
+        // ==========================================
+        // 1. ÉTAT GLOBAL DE L'APPLICATION (STATE)
+        // ==========================================
+        const appState = {
+            activeTab: 'gaming',
+            baseRateHtg: 133,
+            markupPercent: 8,
+            reloadlyBalance: 142.50,
+            meruBalance: 485.00,
+            selectedProduct: null,
+            selectedGateway: 'moncash',
+
+            // Catalogue des produits
+            products: {
+                gaming: [
+                    { id: 'ff_110', category: 'gaming', name: 'Free Fire - 100 + 10 Diamants', usdCost: 1.10, usdSell: 1.25, badge: 'Direct UID', deliveryType: 'topup' },
+                    { id: 'ff_520', category: 'gaming', name: 'Free Fire - 520 Diamants', usdCost: 5.10, usdSell: 5.80, badge: 'Populaire', deliveryType: 'topup' },
+                    { id: 'pubg_325', category: 'gaming', name: 'PUBG Mobile - 325 UC', usdCost: 4.90, usdSell: 5.50, badge: 'Direct UID', deliveryType: 'topup' },
+                    { id: 'mlbb_257', category: 'gaming', name: 'Mobile Legends - 257 Diamants', usdCost: 4.50, usdSell: 5.10, badge: 'Instantané', deliveryType: 'topup' },
+                    { id: 'roblox_10', category: 'gaming', name: 'Carte Cadeau Roblox 10$ USD', usdCost: 9.60, usdSell: 10.80, badge: 'Code PIN', deliveryType: 'pin' },
+                    { id: 'psn_20', category: 'gaming', name: 'PlayStation Store 20$ USD', usdCost: 19.20, usdSell: 21.50, badge: 'Code PIN', deliveryType: 'pin' }
+                ],
+                netflix: [
+                    { id: 'nf_profile_1m', category: 'netflix', name: 'Netflix Ultra HD 4K - 1 Écran (30 Jours)', usdCost: 3.20, usdSell: 4.50, badge: 'Profil Privé + PIN', deliveryType: 'netflix_profile' },
+                    { id: 'nf_gc_15', category: 'netflix', name: 'Carte Cadeau Netflix 15$ USD', usdCost: 14.50, usdSell: 16.20, badge: 'Code Officiel API', deliveryType: 'pin' },
+                    { id: 'nf_gc_25', category: 'netflix', name: 'Carte Cadeau Netflix 25$ USD', usdCost: 24.10, usdSell: 26.80, badge: 'Code Officiel API', deliveryType: 'pin' },
+                    { id: 'nf_full_1m', category: 'netflix', name: 'Compte Complet 5 Écrans (30 Jours)', usdCost: 13.50, usdSell: 17.50, badge: 'Famille / VIP', deliveryType: 'netflix_profile' }
+                ],
+                starlink: [
+                    { id: 'sl_res', category: 'starlink', name: 'Starlink Résidentiel (Standard)', usdCost: 60.00, usdSell: 68.00, badge: 'Forfait 60$ + 8$ Service', deliveryType: 'starlink' },
+                    { id: 'sl_roam_100', category: 'starlink', name: 'Starlink Roam / Voyage 100 Go', usdCost: 55.00, usdSell: 63.00, badge: 'Forfait 55$ + 8$ Service', deliveryType: 'starlink' },
+                    { id: 'sl_roam_unlim', category: 'starlink', name: 'Starlink Roam Illimité', usdCost: 100.00, usdSell: 110.00, badge: 'Forfait 100$ + 10$ Service', deliveryType: 'starlink' },
+                    { id: 'sl_prio', category: 'starlink', name: 'Starlink Priority / Entreprise', usdCost: 140.00, usdSell: 152.00, badge: 'Forfait 140$ + 12$ Service', deliveryType: 'starlink' }
+                ]
+            },
+
+            // Fournisseurs et Passerelles gérés dans l'Admin
+            providers: [
+                { id: 'reloadly', name: 'Reloadly API (Gaming & Gift Cards)', role: 'Fournisseur B2B', active: true, latency: '165ms', balance: '142.50 $' },
+                { id: 'ezpin', name: 'EZPin Backup API', role: 'Fournisseur Secours', active: true, latency: '210ms', balance: '64.00 $' },
+                { id: 'moncash', name: 'Moncash online', role: 'Passerelle HTG', active: true, latency: '190ms', balance: 'Actif' },
+                { id: 'natcash', name: 'Natcash online', role: 'Passerelle HTG', active: true, latency: '220ms', balance: 'Actif' },
+                { id: 'binance', name: 'Binance Pay Merchant', role: 'Passerelle Crypto', active: true, latency: '110ms', balance: 'Actif' },
+                { id: 'nowpayments', name: 'NOWPayments IPN', role: 'Passerelle USDT', active: true, latency: '145ms', balance: 'Actif' }
+            ],
+
+            // Stock des profils Netflix disponibles (Données génériques masquées)
+            netflixInventory: [
+                { id: 'NF-01', email: 'compte.vip01@alevini-stream.ht', pass: 'Alv#2026Stream1', profile: 'Écran 2', pin: '4821', status: 'available' },
+                { id: 'NF-02', email: 'compte.vip01@alevini-stream.ht', pass: 'Alv#2026Stream1', profile: 'Écran 3', pin: '7390', status: 'available' },
+                { id: 'NF-03', email: 'compte.vip02@alevini-stream.ht', pass: 'Alv#2026Stream2', profile: 'Écran 1', pin: '1954', status: 'available' },
+                { id: 'NF-04', email: 'compte.vip02@alevini-stream.ht', pass: 'Alv#2026Stream2', profile: 'Écran 4', pin: '6028', status: 'available' }
+            ],
+
+            // File d'attente Starlink (Données génériques)
+            starlinkQueue: [
+                { id: 'SL-8941', kitOrEmail: 'KIT0098421 (Numéro masqué)', plan: 'Résidentiel (60$)', paidVia: 'Moncash online', amountHtg: 9768, usdCost: 60.00, status: 'PENDING' },
+                { id: 'SL-8942', kitOrEmail: 'abonnement.client@exemple.ht', plan: 'Roam Illimité (100$)', paidVia: 'Binance Pay', amountHtg: 15800, usdCost: 100.00, status: 'PENDING' }
+            ],
+
+            // Historique des commandes du client
+            clientOrders: [
+                {
+                    id: 'CMD-7721',
+                    title: 'Free Fire - 520 Diamants',
+                    date: 'Aujourd’hui, 11:15',
+                    gateway: 'Moncash online',
+                    status: 'LIVRÉ',
+                    deliverable: 'Top-Up crédité sur UID: 2489104829 (Ref Reloadly #RL-99481)'
+                },
+                {
+                    id: 'CMD-7719',
+                    title: 'Carte Cadeau Roblox 10$ USD',
+                    date: 'Hier, 18:40',
+                    gateway: 'Binance Pay',
+                    status: 'LIVRÉ',
+                    deliverable: 'Code PIN : RBX-8842-9104-KLMP'
+                }
+            ]
+        };
+
+        // ==========================================
+        // 2. CALCUL DYNAMIQUE DES PRIX HTG / USD
+        // ==========================================
+        function getEffectiveRate() {
+            return appState.baseRateHtg * (1 + appState.markupPercent / 100);
+        }
+
+        function calculateHtgPrice(usdSell) {
+            return Math.ceil(usdSell * getEffectiveRate());
+        }
+
+        function updatePricingEngine() {
+            const baseInput = parseFloat(document.getElementById('adminBaseRate').value) || 133;
+            const markupInput = parseInt(document.getElementById('adminMarkupSlider').value, 10) || 8;
+
+            appState.baseRateHtg = baseInput;
+            appState.markupPercent = markupInput;
+
+            const effRate = getEffectiveRate().toFixed(2);
+            document.getElementById('adminEffectiveRate').textContent = `${effRate} HTG`;
+            document.getElementById('adminMarkupValue').textContent = `+${markupInput}%`;
+            document.getElementById('headerRateDisplay').textContent = `1 USD = ${effRate} HTG`;
+            document.getElementById('headerMarkupDisplay').textContent = `+${markupInput}%`;
+
+            renderCatalogs();
+            if (appState.selectedProduct) {
+                updateCheckoutButton();
+            }
+        }
+
+        // ==========================================
+        // 3. RENDU DES GRILLES BENTO & KPI
+        // ==========================================
+        function renderKPIs() {
+            document.getElementById('kpiReloadlyBalance').textContent = `${appState.reloadlyBalance.toFixed(2)} $`;
+            document.getElementById('kpiMeruBalance').textContent = `${appState.meruBalance.toFixed(2)} $`;
+            document.getElementById('adminMeruBalance').textContent = `${appState.meruBalance.toFixed(2)} $`;
+
+            const availableNf = appState.netflixInventory.filter(item => item.status === 'available').length;
+            document.getElementById('kpiNetflixStock').textContent = `${availableNf} Dispos`;
+            document.getElementById('netflixHeaderBadge').textContent = `${availableNf} profils prêts à livrer`;
+            document.getElementById('adminNetflixBadge').textContent = `${availableNf} disponibles`;
+
+            const pendingSl = appState.starlinkQueue.filter(item => item.status === 'PENDING').length;
+            document.getElementById('kpiStarlinkPending').textContent = `${pendingSl} Dossier${pendingSl > 1 ? 's' : ''}`;
+            document.getElementById('adminStarlinkBadge').textContent = `${pendingSl} en attente`;
+
+            document.getElementById('ordersBadge').textContent = appState.clientOrders.length;
+        }
+
+        function createProductCardHTML(product, accentColorClass) {
+            const htgPrice = calculateHtgPrice(product.usdSell);
+            const isSelected = appState.selectedProduct && appState.selectedProduct.id === product.id;
+
+            const borderClass = isSelected
+                ? `bg-bentoHover border-${accentColorClass} shadow-lg`
+                : 'bg-bentoCard border-slate-800 hover:border-slate-700';
+
+            return `
+                <div onclick="selectProduct('${product.category}', '${product.id}')" class="p-5 rounded-2xl border ${borderClass} transition cursor-pointer flex flex-col justify-between group">
+                    <div class="flex justify-between items-start gap-2">
+                        <span class="px-2.5 py-1 text-[11px] font-semibold rounded-full bg-slate-800 text-slate-200 border border-slate-700">
+                            ${product.badge}
+                        </span>
+                        <div class="text-right">
+                            <div class="text-lg font-extrabold text-accentGold">${htgPrice.toLocaleString('fr-FR')} HTG</div>
+                            <div class="text-[11px] text-slate-400">${product.usdSell.toFixed(2)} USDT</div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between">
+                        <h4 class="text-sm sm:text-base font-bold text-white group-hover:text-accentGold transition">${product.name}</h4>
+                        <span class="w-6 h-6 rounded-full flex items-center justify-center ${isSelected ? 'bg-accentGold text-slate-950' : 'bg-slate-800 text-slate-400'}">
+                            <i data-lucide="${isSelected ? 'check' : 'plus'}" class="w-3.5 h-3.5"></i>
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCatalogs() {
+            document.getElementById('gamingGrid').innerHTML = appState.products.gaming
+                .map(p => createProductCardHTML(p, 'accentCyan')).join('');
+
+            document.getElementById('netflixGrid').innerHTML = appState.products.netflix
+                .map(p => createProductCardHTML(p, 'accentEmerald')).join('');
+
+            document.getElementById('starlinkGrid').innerHTML = appState.products.starlink
+                .map(p => createProductCardHTML(p, 'accentGold')).join('');
+
+            lucide.createIcons();
+        }
+
+        function renderAdminPanels() {
+            // 1. Grille Fournisseurs & Passerelles
+            const providersContainer = document.getElementById('providersGrid');
+            providersContainer.innerHTML = appState.providers.map(prov => `
+                <div class="p-3.5 rounded-xl bg-deepNight border border-slate-800 flex items-center justify-between gap-2">
+                    <div>
+                        <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full ${prov.active ? 'bg-accentEmerald' : 'bg-rose-500'}"></span>
+                            ${prov.name}
+                        </div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">
+                            ${prov.role} • <span class="text-accentCyan">${prov.latency}</span> • ${prov.balance}
+                        </div>
+                    </div>
+                    <button onclick="toggleProvider('${prov.id}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition ${
+                        prov.active
+                            ? 'bg-emerald-500/15 text-accentEmerald border border-emerald-500/30'
+                            : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                    }">
+                        ${prov.active ? 'ON' : 'OFF'}
+                    </button>
+                </div>
+            `).join('');
+
+            // 2. File d'attente Starlink
+            const slContainer = document.getElementById('adminStarlinkQueue');
+            const pendingList = appState.starlinkQueue.filter(q => q.status === 'PENDING');
+            if (pendingList.length === 0) {
+                slContainer.innerHTML = `<div class="p-4 rounded-xl bg-deepNight border border-slate-800 text-xs text-slate-400 text-center">Aucune facture Starlink en attente de paiement.</div>`;
+            } else {
+                slContainer.innerHTML = pendingList.map(item => `
+                    <div class="p-3.5 rounded-xl bg-deepNight border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="space-y-0.5">
+                            <div class="text-xs font-bold text-white">${item.kitOrEmail}</div>
+                            <div class="text-[11px] text-slate-400">${item.plan} • Encaissé : <span class="text-accentGold font-semibold">${item.amountHtg.toLocaleString('fr-FR')} HTG</span> (${item.paidVia})</div>
+                        </div>
+                        <button onclick="validateStarlinkOrder('${item.id}')" class="px-3.5 py-2 rounded-xl bg-accentEmerald hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shrink-0 transition">
+                            Payer via Meru (${item.usdCost}$) & Valider
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            // 3. Inventaire Profils Netflix
+            const nfContainer = document.getElementById('adminNetflixList');
+            nfContainer.innerHTML = appState.netflixInventory.map(nf => `
+                <div class="p-2.5 rounded-xl bg-deepNight border border-slate-800 flex items-center justify-between text-xs">
+                    <div>
+                        <span class="font-bold text-white">${nf.profile}</span> • <span class="text-slate-400">${nf.email}</span>
+                        <div class="text-[10px] text-slate-500">PIN: ${nf.pin}</div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                        nf.status === 'available'
+                            ? 'bg-emerald-500/15 text-accentEmerald'
+                            : 'bg-slate-800 text-slate-400'
+                    }">
+                        ${nf.status === 'available' ? 'Disponible' : 'Attribué'}
+                    </span>
+                </div>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function renderOrdersHistory() {
+            const container = document.getElementById('ordersListContainer');
+            container.innerHTML = appState.clientOrders.map(ord => `
+                <div class="p-4 rounded-2xl bg-bentoCard border border-slate-800 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-400">${ord.id} • ${ord.date}</span>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            ord.status === 'LIVRÉ'
+                                ? 'bg-emerald-500/15 text-accentEmerald border border-emerald-500/30'
+                                : 'bg-amber-500/15 text-accentGold border border-amber-500/30'
+                        }">
+                            ${ord.status}
+                        </span>
+                    </div>
+                    <div class="text-sm font-bold text-white">${ord.title}</div>
+                    <div class="p-3 rounded-xl bg-deepNight border border-slate-800 text-xs font-mono text-accentCyan break-all">
+                        ${ord.deliverable}
+                    </div>
+                    <div class="text-[11px] text-slate-400">Payé via : <strong class="text-slate-200">${ord.gateway}</strong></div>
+                </div>
+            `).join('');
+        }
+
+        // ==========================================
+        // 4. INTERACTIONS UTILISATEUR & CHECKOUT
+        // ==========================================
+        function selectProduct(category, productId) {
+            const list = appState.products[category];
+            appState.selectedProduct = list.find(p => p.id === productId) || null;
+            renderCatalogs();
+            updateCheckoutButton();
+        }
+
+        function selectGateway(gwId) {
+            appState.selectedGateway = gwId;
+            document.querySelectorAll('.gw-btn').forEach(btn => {
+                btn.className = 'gw-btn p-3 rounded-xl border border-slate-800 bg-bentoCard text-slate-400 hover:text-white text-xs font-bold transition flex items-center justify-center gap-2';
+            });
+            const activeBtn = document.getElementById(`gw-${gwId}`);
+            if (activeBtn) {
+                activeBtn.className = 'gw-btn p-3 rounded-xl border border-accentGold bg-slate-800/90 text-white text-xs font-bold transition flex items-center justify-center gap-2 shadow-md';
+            }
+            updateCheckoutButton();
+        }
+
+        function updateCheckoutButton() {
+            const btn = document.getElementById('payNowBtn');
+            const btnText = document.getElementById('payNowBtnText');
+            const summary = document.getElementById('selectedProductSummary');
+
+            if (!appState.selectedProduct) {
+                btn.disabled = true;
+                btnText.textContent = 'Sélectionnez une offre ci-dessus pour continuer';
+                summary.textContent = 'Aucun produit sélectionné';
+                return;
+            }
+
+            const p = appState.selectedProduct;
+            const htg = calculateHtgPrice(p.usdSell);
+            const gwLabels = {
+                moncash: 'Moncash online',
+                natcash: 'Natcash online',
+                binance: 'Binance Pay',
+                nowpayments: 'NOWPayments'
+            };
+
+            btn.disabled = false;
+            summary.textContent = `${p.name} — ${htg.toLocaleString('fr-FR')} HTG (${p.usdSell.toFixed(2)} USDT)`;
+            btnText.textContent = `Payer ${htg.toLocaleString('fr-FR')} HTG via ${gwLabels[appState.selectedGateway]}`;
+        }
+
+        function verifyPlayerId() {
+            const uid = document.getElementById('playerIdInput').value.trim();
+            if (!uid || uid.length < 5) {
+                showToast('Veuillez saisir un Player ID / UID valide (minimum 5 chiffres).', 'error');
+                return;
+            }
+            document.getElementById('verifiedNickname').textContent = `AleviniPlayer_${uid.slice(-4)}`;
+            document.getElementById('playerVerifiedBadge').classList.remove('hidden');
+            showToast('Identifiant joueur vérifié avec succès sur le serveur du jeu.', 'success');
+        }
+
+        function processClientCheckout() {
+            const product = appState.selectedProduct;
+            if (!product) return;
+
+            // Vérification passerelle active dans l'admin
+            const gwProvider = appState.providers.find(pr => pr.id === appState.selectedGateway);
+            if (gwProvider && !gwProvider.active) {
+                showToast(`La passerelle ${gwProvider.name} est temporairement désactivée par l'Admin.`, 'error');
+                return;
+            }
+
+            const htgPrice = calculateHtgPrice(product.usdSell);
+            const orderId = 'CMD-' + Math.floor(1000 + Math.random() * 9000);
+            const gwNames = { moncash: 'Moncash online', natcash: 'Natcash online', binance: 'Binance Pay', nowpayments: 'NOWPayments' };
+
+            // Traitement selon le type de produit
+            if (product.category === 'gaming') {
+                const uid = document.getElementById('playerIdInput').value.trim();
+                if (product.deliveryType === 'topup' && !uid) {
+                    showToast('Veuillez entrer votre Player ID (UID) avant de valider.', 'error');
+                    return;
+                }
+                if (appState.reloadlyBalance < product.usdCost) {
+                    showToast('Solde API fournisseur insuffisant. Contactez le support.', 'error');
+                    return;
+                }
+
+                appState.reloadlyBalance -= product.usdCost;
+                const deliverableText = product.deliveryType === 'topup'
+                    ? `Crédité instantanément sur UID: ${uid} (Ref API #RL-${Math.floor(10000 + Math.random() * 90000)})`
+                    : `Code PIN Officiel : PIN-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+                appState.clientOrders.unshift({
+                    id: orderId,
+                    title: product.name,
+                    date: 'À l’instant',
+                    gateway: gwNames[appState.selectedGateway],
+                    status: 'LIVRÉ',
+                    deliverable: deliverableText
+                });
+
+                showToast(`Paiement confirmé ! ${product.name} livré automatiquement.`, 'success');
+            }
+            else if (product.category === 'netflix') {
+                if (product.deliveryType === 'netflix_profile') {
+                    const freeProfile = appState.netflixInventory.find(nf => nf.status === 'available');
+                    if (!freeProfile) {
+                        showToast('Plus de profils Netflix en stock. Choisissez une Carte Cadeau Netflix.', 'error');
+                        return;
+                    }
+                    freeProfile.status = 'occupied';
+                    appState.clientOrders.unshift({
+                        id: orderId,
+                        title: product.name,
+                        date: 'À l’instant',
+                        gateway: gwNames[appState.selectedGateway],
+                        status: 'LIVRÉ',
+                        deliverable: `Email: ${freeProfile.email} | Passe: ${freeProfile.pass} | ${freeProfile.profile} (PIN: ${freeProfile.pin})`
+                    });
+                    showToast('Profil Netflix attribué ! Vos accès sont disponibles dans Mes Commandes.', 'success');
+                } else {
+                    appState.reloadlyBalance -= product.usdCost;
+                    appState.clientOrders.unshift({
+                        id: orderId,
+                        title: product.name,
+                        date: 'À l’instant',
+                        gateway: gwNames[appState.selectedGateway],
+                        status: 'LIVRÉ',
+                        deliverable: `Code Carte Cadeau Netflix : NFLX-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`
+                    });
+                    showToast('Carte Cadeau Netflix générée via API !', 'success');
+                }
+            }
+            else if (product.category === 'starlink') {
+                const slAccount = document.getElementById('starlinkAccountInput').value.trim();
+                if (!slAccount) {
+                    showToast('Veuillez saisir l’email du compte Starlink ou le numéro de Kit.', 'error');
+                    return;
+                }
+                const slId = 'SL-' + Math.floor(1000 + Math.random() * 9000);
+                appState.starlinkQueue.unshift({
+                    id: slId,
+                    kitOrEmail: slAccount,
+                    plan: product.name,
+                    paidVia: gwNames[appState.selectedGateway],
+                    amountHtg: htgPrice,
+                    usdCost: product.usdCost,
+                    status: 'PENDING'
+                });
+                appState.clientOrders.unshift({
+                    id: slId,
+                    title: `${product.name} (${slAccount})`,
+                    date: 'À l’instant',
+                    gateway: gwNames[appState.selectedGateway],
+                    status: 'EN COURS (MERU)',
+                    deliverable: 'Paiement reçu. Règlement en cours sur le portail Starlink via carte USD Meru.'
+                });
+                showToast('Commande Starlink enregistrée et envoyée en file prioritaire Admin !', 'success');
+            }
+
+            renderKPIs();
+            renderAdminPanels();
+            renderOrdersHistory();
+            switchTab('orders');
+        }
+
+        // ==========================================
+        // 5. ACTIONS DU PANNEAU ADMIN & FOURNISSEURS
+        // ==========================================
+        function toggleProvider(providerId) {
+            const prov = appState.providers.find(p => p.id === providerId);
+            if (!prov) return;
+            prov.active = !prov.active;
+            renderAdminPanels();
+            showToast(`${prov.name} est maintenant ${prov.active ? 'ACTIVÉ' : 'DÉSACTIVÉ'}.`, prov.active ? 'success' : 'error');
+        }
+
+        function pingAllProviders() {
+            appState.providers.forEach(p => {
+                p.latency = `${Math.floor(95 + Math.random() * 120)}ms`;
+            });
+            renderAdminPanels();
+            showToast('Diagnostic API terminé : tous les connecteurs répondent.', 'success');
+        }
+
+        function topUpMeru(amount) {
+            appState.meruBalance += amount;
+            renderKPIs();
+            showToast(`+${amount}.00 $ ajoutés sur votre carte Meru USD.`, 'success');
+        }
+
+        function topUpReloadlyFromMeru(amount) {
+            if (appState.meruBalance < amount) {
+                showToast('Solde carte Meru insuffisant pour ce transfert.', 'error');
+                return;
+            }
+            appState.meruBalance -= amount;
+            appState.reloadlyBalance += amount;
+            renderKPIs();
+            showToast(`${amount}.00 $ transférés de Meru vers l’API Reloadly.`, 'success');
+        }
+
+        function generateVirtualCard() {
+            const last4 = Math.floor(1000 + Math.random() * 9000);
+            showToast(`Nouvelle carte virtuelle Meru générée (•••• ${last4}) prête pour Starlink.`, 'success');
+        }
+
+        function validateStarlinkOrder(slId) {
+            const item = appState.starlinkQueue.find(q => q.id === slId);
+            if (!item) return;
+
+            if (appState.meruBalance < item.usdCost) {
+                showToast('Solde carte Meru insuffisant pour régler cette facture Starlink.', 'error');
+                return;
+            }
+
+            appState.meruBalance -= item.usdCost;
+            item.status = 'COMPLETED';
+
+            // Mettre à jour la commande client correspondante si elle existe
+            const clientOrd = appState.clientOrders.find(o => o.id === slId);
+            if (clientOrd) {
+                clientOrd.status = 'LIVRÉ';
+                clientOrd.deliverable = `Facture Starlink réglée via Meru (${item.usdCost}$ USD) • Reçu #STL-${Math.floor(100000 + Math.random() * 900000)}`;
+            }
+
+            renderKPIs();
+            renderAdminPanels();
+            renderOrdersHistory();
+            showToast(`Facture Starlink ${item.kitOrEmail} payée via Meru et reçu envoyé au client !`, 'success');
+        }
+
+        function addNetflixProfile() {
+            const email = document.getElementById('newNfEmail').value.trim();
+            const pass = document.getElementById('newNfPass').value.trim();
+            const pin = document.getElementById('newNfPin').value.trim();
+
+            if (!email || !pass || !pin) {
+                showToast('Veuillez remplir l’email, le mot de passe et le PIN du profil Netflix.', 'error');
+                return;
+            }
+
+            const nextNum = appState.netflixInventory.length + 1;
+            appState.netflixInventory.unshift({
+                id: `NF-0${nextNum}`,
+                email,
+                pass,
+                profile: `Écran ${Math.floor(1 + Math.random() * 5)}`,
+                pin,
+                status: 'available'
+            });
+
+            document.getElementById('newNfEmail').value = '';
+            document.getElementById('newNfPass').value = '';
+            document.getElementById('newNfPin').value = '';
+
+            renderKPIs();
+            renderAdminPanels();
+            showToast('Nouveau profil Netflix ajouté au stock automatique !', 'success');
+        }
+
+        // ==========================================
+        // 6. NAVIGATION ONGLETS & MODAL
+        // ==========================================
+        function openModal(initialTab = 'gaming') {
+            document.getElementById('aleviniModal').classList.remove('hidden');
+            switchTab(initialTab);
+        }
+
+        function closeModal() {
+            document.getElementById('aleviniModal').classList.add('hidden');
+        }
+
+        function switchTab(tabId) {
+            appState.activeTab = tabId;
+
+            // Masquer toutes les vues
+            document.querySelectorAll('.tab-view').forEach(view => view.classList.add('hidden'));
+
+            // Réinitialiser les styles des onglets
+            const tabColors = {
+                gaming: 'border-accentCyan text-accentCyan bg-cyan-500/5',
+                netflix: 'border-accentEmerald text-accentEmerald bg-emerald-500/5',
+                starlink: 'border-accentGold text-accentGold bg-amber-500/5',
+                orders: 'border-slate-300 text-white bg-slate-800/40',
+                admin: 'border-rose-400 text-rose-400 bg-rose-500/5'
+            };
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition whitespace-nowrap rounded-t-xl';
+            });
+            document.getElementById('tab-admin').classList.add('ml-auto');
+
+            // Activer l'onglet sélectionné
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            if (activeBtn) {
+                activeBtn.className = `tab-btn ${tabId === 'admin' ? 'ml-auto' : ''} flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 ${tabColors[tabId]} transition whitespace-nowrap rounded-t-xl`;
+            }
+
+            const targetView = document.getElementById(`view-${tabId}`);
+            if (targetView) targetView.classList.remove('hidden');
+
+            // Afficher ou masquer la barre de paiement client
+            const checkoutBar = document.getElementById('clientCheckoutBar');
+            if (tabId === 'admin' || tabId === 'orders') {
+                checkoutBar.classList.add('hidden');
+            } else {
+                checkoutBar.classList.remove('hidden');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const isError = type === 'error';
+
+            toast.className = `pointer-events-auto p-3.5 rounded-2xl border shadow-xl backdrop-blur-md flex items-center gap-2.5 text-xs font-semibold transition-all duration-300 ${
+                isError
+                    ? 'bg-rose-950/90 border-rose-500/40 text-rose-200'
+                    : 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200'
+            }`;
+
+            toast.innerHTML = `
+                <i data-lucide="${isError ? 'alert-circle' : 'check-circle-2'}" class="w-4 h-4 shrink-0 ${isError ? 'text-rose-400' : 'text-accentEmerald'}"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // ==========================================
+        // 7. INITIALISATION AU CHARGEMENT
+        // ==========================================
+        window.onload = function () {
+            renderKPIs();
+            renderCatalogs();
+            renderAdminPanels();
+            renderOrdersHistory();
+            selectGateway('moncash');
+            switchTab('gaming');
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>

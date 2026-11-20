@@ -82,6 +82,57 @@ abstract class FirestoreEmulatorTestBase {
         }
     }
 
+    protected suspend fun signInVerifiedAdmin(email: String): String =
+        signInWithEmailVerification(email, verified = true)
+
+    protected suspend fun signInUnverifiedUser(email: String): String =
+        signInWithEmailVerification(email, verified = false)
+
+    private suspend fun signInWithEmailVerification(email: String, verified: Boolean): String =
+        withContext(Dispatchers.IO) {
+            withTimeout(AUTH_TIMEOUT_MS) {
+                val uid = signInTestUser(email)
+                auth.signOut()
+                val url = java.net.URL(
+                    "http://$EMULATOR_HOST:$AUTH_PORT/identitytoolkit.googleapis.com/v1/projects/$PROJECT_ID/accounts:update"
+                )
+                val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Authorization", "Bearer owner")
+                    doOutput = true
+                    connectTimeout = 3000
+                    readTimeout = 3000
+                }
+                try {
+                    val body = """{"localId":"$uid","emailVerified":$verified}"""
+                    conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                    val code = conn.responseCode
+                    check(code in 200..299) {
+                        val err = conn.errorStream?.bufferedReader()?.readText().orEmpty()
+                        "Auth emulator verify email failed ($code): $err"
+                    }
+                } finally {
+                    conn.disconnect()
+                }
+                val signedIn = auth.signInWithEmailAndPassword(email, DEFAULT_PASSWORD).await()
+                val user = checkNotNull(signedIn.user) { "User missing after re-sign-in" }
+                val refreshedToken = user.getIdToken(true).await()?.token
+                    ?: error("Missing refreshed ID token")
+                val claimsJson = String(
+                    android.util.Base64.decode(
+                        refreshedToken.split(".")[1],
+                        android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
+                    ),
+                    Charsets.UTF_8
+                )
+                check(claimsJson.contains("\"email_verified\":$verified")) {
+                    "Expected email_verified=$verified in JWT claims, got: $claimsJson"
+                }
+                uid
+            }
+        }
+
     protected fun Throwable.unwrapFirestoreException(): FirebaseFirestoreException? {
         var current: Throwable? = this
         while (current != null) {

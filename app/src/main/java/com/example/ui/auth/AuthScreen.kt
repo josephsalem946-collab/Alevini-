@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -52,6 +54,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
 import com.example.R
@@ -72,6 +75,8 @@ import com.example.ui.theme.TextSecondary
 @Composable
 fun AuthScreen(
     onAuthSuccess: () -> Unit,
+    canLockApp: Boolean = false,
+    onLockApp: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -95,7 +100,43 @@ fun AuthScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            if (canLockApp) {
+                Row(
+                    modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    Surface(
+                        color = ObsidianSurfaceElevated,
+                        shape = RoundedCornerShape(50),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianOutline),
+                        onClick = onLockApp,
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("auth_lock_app_button"),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Lock,
+                                contentDescription = "Verrouiller par PIN",
+                                tint = EmeraldPrimary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Verrouiller",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = EmeraldPrimary,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             Column(
                 modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(),
@@ -122,7 +163,7 @@ fun AuthScreen(
                                 Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        ObsidianBg.copy(alpha = 0.85f),
+                                        Color(0xFF071A11).copy(alpha = 0.88f),
                                     )
                                 )
                             )
@@ -139,20 +180,20 @@ fun AuthScreen(
                                 modifier = Modifier
                                     .size(44.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, EmeraldPrimary.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                                    .border(1.dp, Color(0xFF34D37E).copy(alpha = 0.55f), RoundedCornerShape(12.dp)),
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
                                     text = "ALEVINI",
                                     style = MaterialTheme.typography.headlineMedium,
-                                    color = EmeraldPrimary,
+                                    color = Color(0xFF3CE088),
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
                                     text = "Échange multi-devises instantané",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary,
+                                    color = Color(0xFFDCEEE4),
                                 )
                             }
                         }
@@ -206,7 +247,8 @@ fun AuthScreen(
                 Surface(
                     color = ObsidianSurface,
                     shape = RoundedCornerShape(18.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, ObsidianOutline),
+                    border = androidx.compose.foundation.BorderStroke(0.75.dp, ObsidianOutline),
+                    shadowElevation = 3.dp,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -242,6 +284,7 @@ fun AuthScreen(
                                 text = "Je certifie avoir 18 ans ou plus et j'accepte les contrôles anti-fraude sur les références de transaction.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondary,
+                                modifier = Modifier.weight(1f),
                             )
                         }
                     }
@@ -299,13 +342,14 @@ fun AuthScreen(
                     },
                     enabled = !isLoading,
                     shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = EmeraldPrimary,
                         contentColor = ObsidianBg,
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
+                        .heightIn(min = 54.dp)
                         .testTag("google_sign_in_button"),
                 ) {
                     if (isLoading) {
@@ -325,6 +369,9 @@ fun AuthScreen(
                             text = "Continuer avec Google",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            textAlign = TextAlign.Center,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -334,6 +381,7 @@ fun AuthScreen(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Box(
                         modifier = Modifier
@@ -354,6 +402,7 @@ fun AuthScreen(
                         text = "Session chiffrée Firebase • Verrouillage taux 15 min",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
+                        textAlign = TextAlign.Center,
                     )
                 }
             }

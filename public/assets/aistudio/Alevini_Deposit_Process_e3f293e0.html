@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alevini - Processus de Dépôt</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Custom scrollbar for transaction history */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="h-full flex items-center justify-center p-0 sm:p-4">
+
+    <!-- Mobile-first Container Frame -->
+    <div class="w-full max-w-md bg-white sm:rounded-3xl shadow-2xl flex flex-col h-full sm:h-[880px] overflow-hidden border border-gray-100 relative">
+
+        <!-- Top Header & Security Badge -->
+        <header class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white px-5 pt-6 pb-5 shadow-md flex-shrink-0">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-white font-bold text-lg shadow-inner">A</div>
+                    <span class="text-xl font-bold tracking-tight">Alevini</span>
+                </div>
+                <!-- Security Badge -->
+                <div class="flex items-center space-x-1 bg-emerald-800/60 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/30">
+                    <i class="fa-solid fa-shield-halved text-emerald-300 text-xs"></i>
+                    <span class="text-xs font-semibold tracking-wider text-emerald-100 uppercase">SÉCURISÉ</span>
+                </div>
+            </div>
+
+            <!-- Current Balance Card -->
+            <div class="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15">
+                <div class="text-xs text-emerald-200 font-medium uppercase tracking-wider mb-1">Solde Actuel</div>
+                <div class="flex items-baseline justify-between">
+                    <span id="current-balance" class="text-2xl sm:text-3xl font-extrabold tracking-tight">12 500 HTG</span>
+                    <span id="current-balance-usd" class="text-sm font-medium text-emerald-100 bg-emerald-900/40 px-2.5 py-0.5 rounded-lg">≈ $94.34 USD</span>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex bg-black/15 rounded-xl p-1 mt-4">
+                <button onclick="switchTab('depot')" id="tab-depot" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all bg-white text-emerald-800 shadow-sm flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-wallet"></i>
+                    <span>Dépôt</span>
+                </button>
+                <button onclick="switchTab('retrait')" id="tab-retrait" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white/80 hover:text-white flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    <span>Retrait</span>
+                </button>
+                <button onclick="switchTab('historique')" id="tab-historique" class="flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white/80 hover:text-white flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Historique</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Dynamic Content Area -->
+        <main class="flex-1 overflow-y-auto bg-gray-50 p-5 relative" id="main-content">
+
+            <!-- TAB 1 & WIZARD: DEPOT -->
+            <div id="view-depot" class="space-y-5">
+
+                <!-- Wizard Progress Indicator -->
+                <div class="flex items-center justify-between px-2 mb-2">
+                    <div class="flex items-center space-x-2">
+                        <div id="step-ind-1" class="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center transition-colors">1</div>
+                        <span id="step-lbl-1" class="text-xs font-semibold text-gray-800">Mode</span>
+                    </div>
+                    <div class="w-8 h-0.5 bg-gray-300"></div>
+                    <div class="flex items-center space-x-2">
+                        <div id="step-ind-2" class="w-7 h-7 rounded-full bg-gray-200 text-gray-500 font-bold text-xs flex items-center justify-center transition-colors">2</div>
+                        <span id="step-lbl-2" class="text-xs font-medium text-gray-400">Montant</span>
+                    </div>
+                    <div class="w-8 h-0.5 bg-gray-300"></div>
+                    <div class="flex items-center space-x-2">
+                        <div id="step-ind-3" class="w-7 h-7 rounded-full bg-gray-200 text-gray-500 font-bold text-xs flex items-center justify-center transition-colors">3</div>
+                        <span id="step-lbl-3" class="text-xs font-medium text-gray-400">Paiement</span>
+                    </div>
+                </div>
+
+                <!-- STEP 1: PAYMENT METHOD SELECTION -->
+                <div id="step-1-container" class="space-y-4">
+                    <div>
+                        <h2 class="text-base font-bold text-gray-900">Choisissez un mode de dépôt</h2>
+                        <p class="text-xs text-gray-500">Sélectionnez votre passerelle ou opérateur mobile préféré</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-3">
+                        <!-- Natcash -->
+                        <label onclick="selectMethod('Natcash - Online', 'Paiement mobile Natcom', '25 HTG', '500,000 HTG')" class="payment-card cursor-pointer bg-white border-2 border-emerald-500 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:border-emerald-600 transition-all relative overflow-hidden group">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-lg flex-shrink-0">
+                                    <i class="fa-solid fa-mobile-screen-button"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-bold text-gray-900 text-sm">Natcash - Online</span>
+                                        <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">24h/24</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-0.5">Paiement mobile via Natcom</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">Limites : 25 à 500,000 HTG</p>
+                                </div>
+                            </div>
+                            <input type="radio" name="payment_method" checked class="text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                        </label>
+
+                        <!-- MonCash -->
+                        <label onclick="selectMethod('MonCash - Online', 'Paiement mobile Digicel', '25 HTG', '500,000 HTG')" class="payment-card cursor-pointer bg-white border-2 border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:border-emerald-500 transition-all relative overflow-hidden group">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center text-red-600 font-bold text-lg flex-shrink-0">
+                                    <i class="fa-solid fa-sim-card"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-bold text-gray-900 text-sm">MonCash - Online</span>
+                                        <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Populaire</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-0.5">Paiement mobile via Digicel</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">Limites : 25 à 500,000 HTG</p>
+                                </div>
+                            </div>
+                            <input type="radio" name="payment_method" class="text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                        </label>
+
+                        <!-- NOWpayments -->
+                        <label onclick="selectMethod('NOWpayments', 'Passerelle cryptomonnaies', '100 HTG', '1,000,000 HTG')" class="payment-card cursor-pointer bg-white border-2 border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:border-emerald-500 transition-all relative overflow-hidden group">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-lg flex-shrink-0">
+                                    <i class="fa-solid fa-coins"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-bold text-gray-900 text-sm">NOWpayments</span>
+                                        <span class="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded-full">0% Frais</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-0.5">USDT TRC-20, BTC, ETH, TRX</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">Paiement instantané crypto</p>
+                                </div>
+                            </div>
+                            <input type="radio" name="payment_method" class="text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                        </label>
+
+                        <!-- Binance Pay -->
+                        <label onclick="selectMethod('Binance Pay', 'Passerelle Binance officielle', '50 HTG', '2,000,000 HTG')" class="payment-card cursor-pointer bg-white border-2 border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:border-emerald-500 transition-all relative overflow-hidden group">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center text-yellow-600 font-bold text-lg flex-shrink-0">
+                                    <i class="fa-brands fa-btc"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-bold text-gray-900 text-sm">Binance Pay</span>
+                                        <span class="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Instantané</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-0.5">Paiement crypto officiel sans frais</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">Limites en USD/HTG</p>
+                                </div>
+                            </div>
+                            <input type="radio" name="payment_method" class="text-emerald-600 focus:ring-emerald-500 h-4 w-4">
+                        </label>
+                    </div>
+
+                    <button onclick="goToStep(2)" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center space-x-2">
+                        <span>Continuer avec ce mode</span>
+                        <i class="fa-solid fa-arrow-right text-sm"></i>
+                    </button>
+                </div>
+
+                <!-- STEP 2: AMOUNT ENTRY & VALIDATION -->
+                <div id="step-2-container" class="space-y-4 hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-base font-bold text-gray-900">Définir le montant</h2>
+                            <p class="text-xs text-gray-500">Moyen choisi : <span id="selected-method-label" class="font-semibold text-emerald-700">Natcash - Online</span></p>
+                        </div>
+                        <button onclick="goToStep(1)" class="text-xs font-medium text-emerald-600 hover:underline flex items-center space-x-1">
+                            <i class="fa-solid fa-arrow-left"></i>
+                            <span>Changer</span>
+                        </button>
+                    </div>
+
+                    <!-- Limits Box -->
+                    <div class="bg-emerald-50 border border-emerald-200/60 rounded-2xl p-3.5 flex items-center space-x-3 text-emerald-900">
+                        <i class="fa-solid fa-circle-info text-emerald-600 text-lg"></i>
+                        <div class="text-xs">
+                            <span class="font-bold">Limites de dépôt :</span> Min : <span id="limit-min">25 HTG</span> • Max : <span id="limit-max">500,000 HTG</span>
+                        </div>
+                    </div>
+
+                    <!-- Input Field -->
+                    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm space-y-3">
+                        <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Montant souhaité (HTG)</label>
+                        <div class="relative flex items-center">
+                            <input type="number" id="deposit-amount" oninput="calculateConversion(this.value)" placeholder="0.00" class="w-full text-2xl font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all">
+                            <div class="absolute right-4 text-sm font-bold text-gray-400">HTG</div>
+                        </div>
+                        <div class="flex justify-between items-center text-xs px-1">
+                            <span class="text-gray-500 font-medium">Conversion estimée :</span>
+                            <span id="conversion-result" class="font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">≈ $0.00 USD</span>
+                        </div>
+                    </div>
+
+                    <!-- Shortcut Buttons -->
+                    <div>
+                        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">Montants rapides</span>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button onclick="setAmount(100)" class="bg-white border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 text-gray-800 font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm">100 HTG</button>
+                            <button onclick="setAmount(250)" class="bg-white border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 text-gray-800 font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm">250 HTG</button>
+                            <button onclick="setAmount(500)" class="bg-white border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 text-gray-800 font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm">500 HTG</button>
+                            <button onclick="setAmount(1000)" class="bg-white border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 text-gray-800 font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm">1 000 HTG</button>
+                            <button onclick="setAmount(2500)" class="bg-white border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 text-gray-800 font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm">2 500 HTG</button>
+                            <button onclick="setAmount(5000)" class="bg-white border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 text-gray-800 font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm">5 000 HTG</button>
+                            <button onclick="setAmount(10000)" class="bg-white border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 text-gray-800 font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm">10k HTG</button>
+                            <button onclick="setAmount(25000)" class="bg-white border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 text-gray-800 font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm">25k HTG</button>
+                        </div>
+                    </div>
+
+                    <!-- Confirmation Checkbox -->
+                    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm flex items-start space-x-3">
+                        <input type="checkbox" id="confirm-check" class="mt-1 h-4 w-4 text-emerald-600 focus:ring-emerald-500 rounded border-gray-300">
+                        <label for="confirm-check" class="text-xs text-gray-600 cursor-pointer select-none leading-relaxed">
+                            Je confirme disposer d'un compte <span id="checkbox-method-name" class="font-bold text-gray-800">Natcash</span> actif avec un solde suffisant pour couvrir ce dépôt.
+                        </label>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex space-x-3 pt-2">
+                        <button onclick="goToStep(1)" class="w-1/3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3.5 rounded-2xl text-xs transition-all">
+                            Changer mode
+                        </button>
+                        <button onclick="validateAmount()" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-2xl text-xs shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center space-x-2">
+                            <span>VALIDER / SUIVANT</span>
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 3: GATEWAY AUTHENTICATION -->
+                <div id="step-3-container" class="space-y-4 hidden">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-base font-bold text-gray-900">Passerelle de Paiement</h2>
+                            <p class="text-xs text-gray-500">Connexion sécurisée à la plateforme externe</p>
+                        </div>
+                        <button onclick="goToStep(2)" class="text-xs font-medium text-emerald-600 hover:underline flex items-center space-x-1">
+                            <i class="fa-solid fa-arrow-left"></i>
+                            <span>Retour</span>
+                        </button>
+                    </div>
+
+                    <!-- Redirection Banner -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 flex items-start space-x-3 text-blue-900">
+                        <i class="fa-solid fa-satellite-dish text-blue-600 text-lg mt-0.5 animate-pulse"></i>
+                        <div class="text-xs space-y-1">
+                            <div class="font-bold">Redirection API officielle active</div>
+                            <p class="text-blue-700">Votre transaction de <span id="summary-amount" class="font-bold">0 HTG</span> est acheminée vers la passerelle sécurisée du partenaire.</p>
+                        </div>
+                    </div>
+
+                    <!-- Auth Form -->
+                    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm space-y-4">
+                        <div class="space-y-1.5">
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Numéro de téléphone mobile</label>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-3.5 text-sm font-semibold text-gray-400">+509</span>
+                                <input type="tel" id="auth-phone" placeholder="38 00 0000" maxlength="11" class="w-full text-sm font-medium text-gray-900 bg-gray-50 border border-gray-200 rounded-xl pl-14 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all">
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Code PIN Secret / OTP</label>
+                            <input type="password" id="auth-pin" placeholder="••••" maxlength="6" class="w-full text-center text-xl tracking-widest font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all">
+                        </div>
+
+                        <!-- SSL Note -->
+                        <div class="flex items-center space-x-2 text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                            <i class="fa-solid fa-lock text-emerald-600"></i>
+                            <span>Chiffrement SSL 256-bit actif. Votre code PIN n'est jamais stocké.</span>
+                        </div>
+                    </div>
+
+                    <!-- External Link button -->
+                    <a href="#" onclick="openExternalPortal(event)" class="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-2xl text-xs transition-all flex items-center justify-center space-x-2 shadow-sm">
+                        <i class="fa-solid fa-globe text-emerald-600"></i>
+                        <span>Accéder directement au portail web externe</span>
+                    </a>
+
+                    <!-- Finalize Payment Button -->
+                    <button onclick="finalizeDeposit()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <span>Confirmer et Finaliser le Dépôt</span>
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- TAB 2: RETRAIT (Placeholder info screen) -->
+            <div id="view-retrait" class="space-y-4 hidden">
+                <div class="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm text-center space-y-4">
+                    <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto text-2xl">
+                        <i class="fa-solid fa-money-bill-transfer"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-gray-900">Espace Retrait Alevini</h2>
+                        <p class="text-xs text-gray-500 mt-1">Transférez vos gains ou fonds disponibles instantanément vers Natcash, MonCash ou Crypto.</p>
+                    </div>
+                    <div class="p-3 bg-blue-50 rounded-xl text-xs text-blue-800 font-medium">
+                        Dispo : 12 500 HTG ($94.34 USD)
+                    </div>
+                    <button onclick="switchTab('depot')" class="w-full bg-emerald-600 text-white text-xs font-semibold py-3 rounded-xl shadow-md">
+                        Retourner aux Dépôts
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 3: HISTORIQUE WITH DELETE FEATURE -->
+            <div id="view-historique" class="space-y-3 hidden">
+                <div class="flex justify-between items-center mb-1">
+                    <h2 class="text-sm font-bold text-gray-900">Journal des Transactions</h2>
+                    <span id="history-count" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">3 transactions</span>
+                </div>
+
+                <div id="history-list" class="space-y-2.5">
+                    <!-- Dynamic injection via JavaScript -->
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Notification Modal / Custom Alert Box -->
+    <div id="notification-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl transform transition-all text-center space-y-4">
+            <div id="modal-icon-container" class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+                <i id="modal-icon" class="fa-solid fa-check"></i>
+            </div>
+            <div>
+                <h3 id="modal-title" class="text-lg font-bold text-gray-900">Succès</h3>
+                <p id="modal-message" class="text-xs text-gray-500 mt-1">Opération effectuée avec succès sur votre compte Alevini.</p>
+            </div>
+            <button onclick="closeModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-xs shadow-md transition-all">
+                Compris
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Exchange Rate constant (approximate conversion rate based on prompt: 12500 HTG = $94.34 USD -> ~132.49 HTG per USD or vice versa)
+        const HTG_TO_USD_RATE = 1 / 132.49;
+
+        // Current application state
+        let state = {
+            activeTab: 'depot',
+            currentStep: 1,
+            selectedMethod: 'Natcash - Online',
+            methodDesc: 'Paiement mobile Natcom',
+            minLimit: 25,
+            maxLimit: 500000,
+            amount: '',
+            transactions: [
+                { id: 1, type: 'Dépôt', method: 'Natcash - Online', amount: 2500, date: '16 Nov 2026, 10:45', status: 'Validé' },
+                { id: 2, type: 'Dépôt', method: 'NOWpayments', amount: 5000, date: '14 Nov 2026, 15:20', status: 'Validé' },
+                { id: 3, type: 'Dépôt', method: 'MonCash - Online', amount: 1000, date: '10 Nov 2026, 09:12', status: 'Validé' }
+            ]
+        };
+
+        // Tab Switching Logic
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+            
+            // Hide all views
+            document.getElementById('view-depot').classList.add('hidden');
+            document.getElementById('view-retrait').classList.add('hidden');
+            document.getElementById('view-historique').classList.add('hidden');
+
+            // Reset tab styles
+            ['depot', 'retrait', 'historique'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                btn.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all text-white/80 hover:text-white flex items-center justify-center space-x-1.5";
+            });
+
+            // Activate chosen tab
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.className = "flex-1 py-2 text-xs font-semibold rounded-lg transition-all bg-white text-emerald-800 shadow-sm flex items-center justify-center space-x-1.5";
+
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+
+            if (tabName === 'historique') {
+                renderHistory();
+            }
+        }
+
+        // Wizard Step Navigation
+        function goToStep(step) {
+            state.currentStep = step;
+
+            document.getElementById('step-1-container').classList.add('hidden');
+            document.getElementById('step-2-container').classList.add('hidden');
+            document.getElementById('step-3-container').classList.add('hidden');
+
+            document.getElementById(`step-${step}-container`).classList.remove('hidden');
+
+            // Update Wizard indicators
+            for (let i = 1; i <= 3; i++) {
+                const ind = document.getElementById(`step-ind-${i}`);
+                const lbl = document.getElementById(`step-lbl-${i}`);
+                if (i < step) {
+                    ind.className = "w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center transition-colors";
+                    ind.innerHTML = '<i class="fa-solid fa-check text-xs"></i>';
+                    lbl.className = "text-xs font-medium text-emerald-700";
+                } else if (i === step) {
+                    ind.className = "w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center transition-colors";
+                    ind.innerHTML = i;
+                    lbl.className = "text-xs font-semibold text-gray-800";
+                } else {
+                    ind.className = "w-7 h-7 rounded-full bg-gray-200 text-gray-500 font-bold text-xs flex items-center justify-center transition-colors";
+                    ind.innerHTML = i;
+                    lbl.className = "text-xs font-medium text-gray-400";
+                }
+            }
+
+            if (step === 2) {
+                document.getElementById('selected-method-label').innerText = state.selectedMethod;
+                document.getElementById('checkbox-method-name').innerText = state.selectedMethod.split(' - ')[0];
+                document.getElementById('limit-min').innerText = state.minLimit.toLocaleString() + ' HTG';
+                document.getElementById('limit-max').innerText = state.maxLimit.toLocaleString() + ' HTG';
+            } else if (step === 3) {
+                document.getElementById('summary-amount').innerText = Number(state.amount).toLocaleString() + ' HTG';
+            }
+        }
+
+        // Select Payment Method
+        function selectMethod(name, desc, min, max) {
+            state.selectedMethod = name;
+            state.methodDesc = desc;
+            state.minLimit = min;
+            state.maxLimit = max;
+        }
+
+        // Set amount via shortcut buttons
+        function setAmount(val) {
+            document.getElementById('deposit-amount').value = val;
+            calculateConversion(val);
+        }
+
+        // Real-time currency conversion
+        function calculateConversion(val) {
+            state.amount = val;
+            const num = parseFloat(val) || 0;
+            const usd = num * HTG_TO_USD_RATE;
+            document.getElementById('conversion-result').innerText = `≈ $${usd.toFixed(2)} USD`;
+        }
+
+        // Validate Step 2 Amount
+        function validateAmount() {
+            const amountVal = parseFloat(document.getElementById('deposit-amount').value);
+            const isChecked = document.getElementById('confirm-check').checked;
+
+            if (!amountVal || amountVal <= 0) {
+                showModal('Attention', 'Veuillez saisir un montant valide pour votre dépôt.', 'warning');
+                return;
+            }
+
+            if (!isChecked) {
+                showModal('Confirmation requise', 'Veuillez cocher la case confirmant que vous disposez d\'un compte actif avec un solde suffisant.', 'warning');
+                return;
+            }
+
+            goToStep(3);
+        }
+
+        // External portal link simulation
+        function openExternalPortal(e) {
+            e.preventDefault();
+            showModal('Portail Externe', `Ouverture sécurisée du portail web officiel pour ${state.selectedMethod}...`, 'info');
+        }
+
+        // Finalize Deposit
+        function finalizeDeposit() {
+            const phone = document.getElementById('auth-phone').value;
+            const pin = document.getElementById('auth-pin').value;
+
+            if (!phone || phone.length < 7) {
+                showModal('Numéro requis', 'Veuillez entrer un numéro de téléphone mobile valide.', 'warning');
+                return;
+            }
+
+            if (!pin || pin.length < 4) {
+                showModal('Code PIN requis', 'Veuillez saisir votre code PIN secret ou OTP.', 'warning');
+                return;
+            }
+
+            // Add to transaction history
+            const newTx = {
+                id: Date.now(),
+                type: 'Dépôt',
+                method: state.selectedMethod,
+                amount: parseFloat(state.amount),
+                date: 'Aujourd\'hui, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'Validé'
+            };
+            state.transactions.unshift(newTx);
+
+            // Success modal
+            showModal('Dépôt Réussi !', `Votre compte Alevini a été crédité avec succès de ${Number(state.amount).toLocaleString()} HTG via ${state.selectedMethod}.`, 'success');
+
+            // Reset and go back to tab 1 step 1
+            document.getElementById('deposit-amount').value = '';
+            document.getElementById('auth-phone').value = '';
+            document.getElementById('auth-pin').value = '';
+            document.getElementById('confirm-check').checked = false;
+            goToStep(1);
+        }
+
+        // Render History with delete feature
+        function renderHistory() {
+            const container = document.getElementById('history-list');
+            document.getElementById('history-count').innerText = `${state.transactions.length} transaction${state.transactions.length > 1 ? 's' : ''}`;
+
+            if (state.transactions.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-8 text-center border border-gray-200 text-gray-400 space-y-2">
+                        <i class="fa-solid fa-receipt text-3xl text-gray-300"></i>
+                        <p class="text-xs">Aucune transaction enregistrée.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = state.transactions.map(tx => `
+                <div class="bg-white rounded-2xl p-3.5 border border-gray-200 shadow-sm flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                            <i class="fa-solid fa-arrow-down"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-gray-900">${tx.type} • ${tx.method}</span>
+                                <span class="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 rounded">${tx.status}</span>
+                            </div>
+                            <p class="text-[11px] text-gray-400 mt-0.5">${tx.date}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm font-extrabold text-emerald-700">+${tx.amount.toLocaleString()} HTG</span>
+                        <button onclick="deleteTransaction(${tx.id})" title="Supprimer la transaction" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center transition-all">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Delete transaction function
+        function deleteTransaction(id) {
+            state.transactions = state.transactions.filter(tx => tx.id !== id);
+            renderHistory();
+        }
+
+        // Modal Controls
+        function showModal(title, message, type = 'success') {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            
+            const iconCont = document.getElementById('modal-icon-container');
+            const icon = document.getElementById('modal-icon');
+
+            if (type === 'success') {
+                iconCont.className = "w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-2xl";
+                icon.className = "fa-solid fa-check";
+            } else if (type === 'warning') {
+                iconCont.className = "w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto text-2xl";
+                icon.className = "fa-solid fa-triangle-exclamation";
+            } else {
+                iconCont.className = "w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto text-2xl";
+                icon.className = "fa-solid fa-info";
+            }
+
+            document.getElementById('notification-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('notification-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

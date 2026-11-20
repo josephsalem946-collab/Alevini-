@@ -1,23 +1,30 @@
 package com.example.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-private val AleviniDarkColorScheme = darkColorScheme(
+val LocalDataSaverMode = staticCompositionLocalOf { false }
+
+private val AleviniLightColorScheme = lightColorScheme(
     primary = EmeraldPrimary,
     onPrimary = EmeraldOnPrimary,
     primaryContainer = EmeraldContainer,
     onPrimaryContainer = EmeraldOnContainer,
     secondary = GoldAccent,
-    onSecondary = ObsidianBg,
+    onSecondary = Color.White,
     secondaryContainer = GoldContainer,
     onSecondaryContainer = GoldOnContainer,
     tertiary = SkyInfo,
-    onTertiary = ObsidianBg,
+    onTertiary = Color.White,
     tertiaryContainer = SkyContainer,
     onTertiaryContainer = TextPrimary,
     background = ObsidianBg,
@@ -30,11 +37,16 @@ private val AleviniDarkColorScheme = darkColorScheme(
     surfaceContainer = ObsidianSurfaceElevated,
     surfaceContainerHigh = ObsidianSurfaceBright,
     outline = ObsidianOutline,
-    outlineVariant = ObsidianOutline.copy(alpha = 0.5f),
+    outlineVariant = ObsidianOutline.copy(alpha = 0.65f),
     error = RubyError,
-    onError = TextPrimary,
+    onError = Color.White,
     errorContainer = RubyContainer,
     onErrorContainer = TextPrimary,
+)
+
+private val AleviniNoTeardropSelectionColors = TextSelectionColors(
+    handleColor = Color.Transparent,
+    backgroundColor = EmeraldPrimary.copy(alpha = 0.24f),
 )
 
 val AleviniShapes = Shapes(
@@ -45,11 +57,19 @@ val AleviniShapes = Shapes(
 )
 
 @Composable
-fun AleviniTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = AleviniDarkColorScheme,
-        typography = AleviniTypography,
-        shapes = AleviniShapes,
-        content = content,
-    )
+fun AleviniTheme(
+    isDataSaverEnabled: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    CompositionLocalProvider(
+        LocalTextSelectionColors provides AleviniNoTeardropSelectionColors,
+        LocalDataSaverMode provides isDataSaverEnabled,
+    ) {
+        MaterialTheme(
+            colorScheme = AleviniLightColorScheme,
+            typography = AleviniTypography,
+            shapes = AleviniShapes,
+            content = content,
+        )
+    }
 }

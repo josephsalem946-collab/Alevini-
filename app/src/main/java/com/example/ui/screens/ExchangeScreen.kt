@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -62,18 +64,23 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.data.domain.ExchangeCalculator
 import com.example.data.model.CryptoCoin
 import com.example.data.model.CurrencyCode
 import com.example.data.model.ExchangeConfig
 import com.example.data.model.PaymentMethod
 import com.example.data.model.UserProfile
 import com.example.ui.components.MethodChip
+import com.example.ui.components.ScrollToTopButton
 import com.example.ui.components.formatNum
 import com.example.ui.theme.EmeraldContainer
+import com.example.ui.theme.EmeraldOnPrimary
 import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.ForestGreen
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.GoldContainer
 import com.example.ui.theme.JetBrainsMonoFamily
@@ -106,6 +113,7 @@ fun ExchangeScreen(
     onSetSendAmount: (String) -> Unit,
     onSetDestAccount: (String) -> Unit,
     onCreateOrder: () -> Unit,
+    onNavigateToTopUp: (PaymentMethod) -> Unit,
 ) {
     var swapFlipped by remember { mutableStateOf(false) }
     val swapRotation by animateFloatAsState(
@@ -114,13 +122,28 @@ fun ExchangeScreen(
         label = "swap_rotation",
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    val sendAmountParsed = calcState.sendAmountText.replace(",", ".").toDoubleOrNull() ?: 0.0
+    val availableGatewayBalance = userProfile?.balanceFor(calcState.sendMethod) ?: 0.0
+    val gatewayCurrency = calcState.sendMethod.defaultCurrency
+    val requiredDebit = remember(config, calcState.sendMethod, calcState.sendCurrency, sendAmountParsed) {
+        ExchangeCalculator.requiredGatewayDebit(
+            config = config,
+            sendMethod = calcState.sendMethod,
+            sendCurrency = calcState.sendCurrency,
+            sendAmount = sendAmountParsed,
+        )
+    }
+    val hasEnoughFunds = sendAmountParsed > 0.0 && availableGatewayBalance + 1e-6 >= requiredDebit
+    val scrollState = rememberScrollState()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
         Column(modifier = Modifier.widthIn(max = 600.dp).fillMaxWidth()) {
             // Blocked Account Warning
             if (userProfile?.isBlocked == true) {
@@ -148,12 +171,13 @@ fun ExchangeScreen(
             }
 
             // Live Rates Hero Banner
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(22.dp))
-                    .border(1.dp, ObsidianOutline, RoundedCornerShape(22.dp))
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                border = BorderStroke(0.75.dp, ObsidianOutline),
+                shadowElevation = 3.dp,
+                modifier = Modifier.fillMaxWidth(),
             ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 Image(
                     painter = painterResource(id = R.drawable.alevini_hero_banner_1794757901223),
                     contentDescription = "Taux en direct Alevini",
@@ -166,8 +190,8 @@ fun ExchangeScreen(
                         .background(
                             Brush.horizontalGradient(
                                 listOf(
-                                    ObsidianBg.copy(alpha = 0.92f),
-                                    ObsidianBg.copy(alpha = 0.62f),
+                                    ObsidianSurface.copy(alpha = 0.93f),
+                                    ObsidianSurfaceBright.copy(alpha = 0.85f),
                                 )
                             )
                         )
@@ -182,18 +206,23 @@ fun ExchangeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
+                        ) {
                             Icon(
                                 imageVector = Icons.Rounded.Bolt,
                                 contentDescription = null,
-                                tint = EmeraldPrimary,
+                                tint = ForestGreen,
                                 modifier = Modifier.size(18.dp),
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Taux en direct • Alevini",
                                 style = MaterialTheme.typography.labelLarge,
-                                color = EmeraldPrimary,
+                                color = ForestGreen,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                         Surface(
@@ -204,6 +233,7 @@ fun ExchangeScreen(
                                 text = "Verrou 15 min",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = GoldAccent,
+                                maxLines = 1,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                             )
                         }
@@ -241,6 +271,7 @@ fun ExchangeScreen(
                     }
                 }
             }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -248,7 +279,8 @@ fun ExchangeScreen(
             Surface(
                 color = ObsidianSurface,
                 shape = RoundedCornerShape(22.dp),
-                border = BorderStroke(1.dp, ObsidianOutline),
+                border = BorderStroke(0.75.dp, ObsidianOutline),
+                shadowElevation = 3.dp,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -261,6 +293,9 @@ fun ExchangeScreen(
                             text = "Vous envoyez",
                             style = MaterialTheme.typography.titleMedium,
                             color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
                         )
                         CurrencySelectorRow(
                             selected = calcState.sendCurrency,
@@ -287,6 +322,64 @@ fun ExchangeScreen(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Surface(
+                        color = if (hasEnoughFunds || sendAmountParsed <= 0.0) {
+                            EmeraldContainer.copy(alpha = 0.4f)
+                        } else {
+                            RubyContainer.copy(alpha = 0.55f)
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (hasEnoughFunds || sendAmountParsed <= 0.0) EmeraldPrimary.copy(alpha = 0.45f) else RubyError.copy(alpha = 0.6f),
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    text = "Solde ${calcState.sendMethod.label} : ${formatNum(availableGatewayBalance)} ${gatewayCurrency.code}",
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (hasEnoughFunds || sendAmountParsed <= 0.0) EmeraldPrimary else RubyError,
+                                )
+                                Text(
+                                    text = "Frais passerelle : ${formatNum(config.feeFor(calcState.sendMethod))}% • Requis : ${formatNum(requiredDebit)} ${gatewayCurrency.code}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextSecondary,
+                                )
+                            }
+                            if (!hasEnoughFunds) {
+                                Surface(
+                                    color = RubyError.copy(alpha = 0.18f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    onClick = { onNavigateToTopUp(calcState.sendMethod) },
+                                    modifier = Modifier
+                                        .heightIn(min = 36.dp)
+                                        .testTag("exchange_inline_topup_badge"),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = "+ Recharger",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = RubyError,
+                                            maxLines = 1,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     AnimatedVisibility(visible = calcState.sendMethod == PaymentMethod.NOWPAYMENTS) {
                         Column(modifier = Modifier.padding(top = 10.dp)) {
                             Text(
@@ -295,7 +388,12 @@ fun ExchangeScreen(
                                 color = TextMuted,
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
                                 CryptoCoin.entries.forEach { coin ->
                                     FilterChip(
                                         selected = calcState.cryptoCoin == coin,
@@ -357,17 +455,21 @@ fun ExchangeScreen(
                                 shape = RoundedCornerShape(10.dp),
                                 border = BorderStroke(1.dp, ObsidianOutline),
                                 onClick = { onSetSendAmount(preset) },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp),
                             ) {
                                 Box(
                                     contentAlignment = Alignment.Center,
-                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp),
                                 ) {
                                     Text(
                                         text = "$preset ${calcState.sendCurrency.symbol}",
                                         fontFamily = JetBrainsMonoFamily,
                                         style = MaterialTheme.typography.labelSmall,
                                         color = TextSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
                             }
@@ -412,7 +514,8 @@ fun ExchangeScreen(
             Surface(
                 color = ObsidianSurface,
                 shape = RoundedCornerShape(22.dp),
-                border = BorderStroke(1.dp, ObsidianOutline),
+                border = BorderStroke(0.75.dp, ObsidianOutline),
+                shadowElevation = 3.dp,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -425,6 +528,9 @@ fun ExchangeScreen(
                             text = "Vous recevez",
                             style = MaterialTheme.typography.titleMedium,
                             color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
                         )
                         CurrencySelectorRow(
                             selected = calcState.receiveCurrency,
@@ -469,12 +575,15 @@ fun ExchangeScreen(
                                     color = TextSecondary,
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
+                                val previewText = "${formatNum(calc.receiveAmount)} ${calcState.receiveCurrency.code}"
                                 Text(
-                                    text = "${formatNum(calc.receiveAmount)} ${calcState.receiveCurrency.code}",
+                                    text = previewText,
                                     fontFamily = JetBrainsMonoFamily,
                                     fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.displaySmall,
+                                    style = if (previewText.length > 14) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.displaySmall,
                                     color = EmeraldPrimary,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.testTag("receive_amount_preview"),
                                 )
                                 HorizontalDivider(
@@ -484,17 +593,22 @@ fun ExchangeScreen(
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(
                                         text = "Frais totaux : ${formatNum(calc.feePercent)}%",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = TextSecondary,
+                                        modifier = Modifier.weight(1f).padding(end = 8.dp),
                                     )
                                     Text(
                                         text = "1 ${calcState.sendCurrency.code} = ${String.format(Locale.US, "%.4f", calc.effectiveRate)} ${calcState.receiveCurrency.code}",
                                         fontFamily = JetBrainsMonoFamily,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = GoldAccent,
+                                        textAlign = TextAlign.End,
+                                        maxLines = 2,
+                                        modifier = Modifier.weight(1f, fill = false),
                                     )
                                 }
                             } else {
@@ -523,6 +637,10 @@ fun ExchangeScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = EmeraldPrimary,
                             unfocusedBorderColor = ObsidianOutline,
+                            focusedContainerColor = Color(0xFFFAFDFB),
+                            unfocusedContainerColor = Color(0xFFFAFDFB),
+                            focusedLabelColor = ForestGreen,
+                            unfocusedLabelColor = TextSecondary,
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary,
                         ),
@@ -533,15 +651,62 @@ fun ExchangeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (quote.calculation != null && !hasEnoughFunds && userProfile?.isBlocked != true) {
+                Surface(
+                    color = RubyContainer.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, RubyError),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                        .testTag("exchange_insufficient_balance_banner"),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Warning, contentDescription = null, tint = RubyError)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Solde ${calcState.sendMethod.label} insuffisant",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = RubyError,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                        Text(
+                            text = "Vous disposez de ${formatNum(availableGatewayBalance)} ${gatewayCurrency.code} sur ${calcState.sendMethod.label} (${formatNum(requiredDebit)} ${gatewayCurrency.code} requis). Rechargez d'abord ce portefeuille.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextPrimary,
+                        )
+                        Button(
+                            onClick = { onNavigateToTopUp(calcState.sendMethod) },
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary, contentColor = ObsidianBg),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .testTag("exchange_topup_cta_btn"),
+                        ) {
+                            Text("Recharger ${calcState.sendMethod.label}", fontWeight = FontWeight.Bold, maxLines = 2, textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+            }
 
             Button(
                 onClick = onCreateOrder,
                 enabled = quote.calculation != null &&
+                    hasEnoughFunds &&
                     calcState.destAccount.trim().length >= 3 &&
                     !calcState.isSubmittingOrder &&
                     userProfile?.isBlocked != true,
                 shape = RoundedCornerShape(16.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = EmeraldPrimary,
                     contentColor = ObsidianBg,
@@ -550,7 +715,7 @@ fun ExchangeScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .heightIn(min = 56.dp)
                     .testTag("create_order_button"),
             ) {
                 if (calcState.isSubmittingOrder) {
@@ -563,39 +728,59 @@ fun ExchangeScreen(
                     Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Créer l'ordre & Verrouiller le taux",
+                        text = if (hasEnoughFunds) {
+                            "Échanger via solde ${calcState.sendMethod.label}"
+                        } else {
+                            "Solde ${calcState.sendMethod.label} insuffisant"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Official Gateways Reference Card
+            // Marketing Card (all gateway details and figures intentionally hidden)
             Surface(
                 color = ObsidianSurfaceElevated,
                 shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, ObsidianOutline),
-                modifier = Modifier.fillMaxWidth(),
+                border = BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.35f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("alevini_marketing_card"),
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     Text(
-                        text = "Passerelles officielles Alevini",
+                        text = "Alevini — Votre partenaire financier de confiance",
                         style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = GoldAccent,
+                    )
+                    Text(
+                        text = "Connectez vos portefeuilles locaux et numériques en toute sérénité grâce à une expérience moderne, fluide et sécurisée.",
+                        style = MaterialTheme.typography.bodySmall,
                         color = TextPrimary,
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "MonCash : ${config.moncashMerchant}  •  NatCash : ${config.natcashMerchant}",
-                        fontFamily = JetBrainsMonoFamily,
+                        text = "• Rapidité d'exécution : vos conversions traitées avec réactivité.",
                         style = MaterialTheme.typography.labelSmall,
                         color = EmeraldPrimary,
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Limites : ${formatNum(config.minOrderUsd)} USD – ${formatNum(config.maxOrderUsd)} USD",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "• Protection avancée : accès sécurisé par code PIN et validation transparente.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary,
+                    )
+                    Text(
+                        text = "• Liberté sans frontières : passez de vos fonds locaux aux services digitaux à tout moment.",
+                        style = MaterialTheme.typography.labelSmall,
                         color = TextMuted,
                     )
                 }
@@ -604,14 +789,17 @@ fun ExchangeScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+        ScrollToTopButton(scrollState = scrollState)
+    }
 }
 
 @Composable
 private fun RatePill(title: String, value: String, modifier: Modifier = Modifier) {
     Surface(
-        color = ObsidianSurfaceElevated.copy(alpha = 0.9f),
+        color = ObsidianSurface.copy(alpha = 0.94f),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, ObsidianOutline),
+        border = BorderStroke(0.75.dp, ObsidianOutline),
+        shadowElevation = 1.dp,
         modifier = modifier,
     ) {
         Column(
@@ -662,6 +850,7 @@ private fun CurrencySelectorRow(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.labelMedium,
                     color = if (isSelected) ObsidianBg else TextSecondary,
+                    maxLines = 1,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 )
             }

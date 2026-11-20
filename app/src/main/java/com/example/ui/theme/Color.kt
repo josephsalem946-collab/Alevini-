@@ -2,27 +2,36 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val ObsidianBg = Color(0xFF07140E)
-val ObsidianSurface = Color(0xFF0D1F17)
-val ObsidianSurfaceElevated = Color(0xFF132B20)
-val ObsidianSurfaceBright = Color(0xFF1B3A2C)
-val ObsidianOutline = Color(0xFF254D3B)
+// Soft off-white & light cool-gray background palette
+val ObsidianBg = Color(0xFFF4F6F5)
+val ObsidianSurface = Color(0xFFFFFFFF)
+val ObsidianSurfaceElevated = Color(0xFFF1F5F3)
+val ObsidianSurfaceBright = Color(0xFFE7F0EB)
+val ObsidianOutline = Color(0xFFE0E7E3)
 
-val EmeraldPrimary = Color(0xFF2BD978)
-val EmeraldOnPrimary = Color(0xFF032110)
-val EmeraldContainer = Color(0xFF0E3D24)
-val EmeraldOnContainer = Color(0xFF9DF8C0)
+// Natural matte mint & emerald greens
+val EmeraldPrimary = Color(0xFF1D8356)
+val ForestGreen = Color(0xFF135538)
+val EmeraldOnPrimary = Color(0xFFFFFFFF)
+val EmeraldContainer = Color(0xFFDDF3E7)
+val EmeraldOnContainer = Color(0xFF124D33)
 
-val GoldAccent = Color(0xFFF4B942)
-val GoldContainer = Color(0xFF3A2B0A)
-val GoldOnContainer = Color(0xFFFFE09E)
+// Warm amber & soft pastel yellow-orange accents
+val GoldAccent = Color(0xFFB86B09)
+val GoldContainer = Color(0xFFFFF3DC)
+val GoldOnContainer = Color(0xFF5A3303)
+val PastelAmberStart = Color(0xFFFFE7A3)
+val PastelOrangeEnd = Color(0xFFFFC87D)
+val PastelAmberText = Color(0xFF4A2B04)
 
-val SkyInfo = Color(0xFF38BDF8)
-val SkyContainer = Color(0xFF0D2E3F)
+// Informational & error tones calibrated for light mode
+val SkyInfo = Color(0xFF0375B2)
+val SkyContainer = Color(0xFFE0F2FE)
 
-val RubyError = Color(0xFFFF5A5F)
-val RubyContainer = Color(0xFF3E1216)
+val RubyError = Color(0xFFDC2626)
+val RubyContainer = Color(0xFFFEE2E2)
 
-val TextPrimary = Color(0xFFEBF5EF)
-val TextSecondary = Color(0xFF9CB8A8)
-val TextMuted = Color(0xFF6B8A79)
+// Dark, legible, professional typography
+val TextPrimary = Color(0xFF13221B)
+val TextSecondary = Color(0xFF51655B)
+val TextMuted = Color(0xFF7B8E85)

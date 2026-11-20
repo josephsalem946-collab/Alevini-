@@ -2,7 +2,7 @@
   "entities": {
     "ExchangeConfig": {
       "title": "ExchangeConfig",
-      "description": "Live exchange rates, gateway fees, limits, and merchant payment targets for Alevini.",
+      "description": "Live exchange rates, gateway fees, limits, merchant payment targets, and online API gateway flags for Alevini.",
       "type": "object",
       "properties": {
         "usdToHtgBuy": { "type": "number", "description": "HTG rate when client receives HTG" },
@@ -19,6 +19,12 @@
         "natcashMerchant": { "type": "string", "description": "Official NatCash merchant phone number" },
         "binancePayId": { "type": "string", "description": "Official Binance Pay UID" },
         "meruTag": { "type": "string", "description": "Official Meru Tag" },
+        "backendBaseUrl": { "type": "string", "description": "Secured HTTPS backend API URL for MonCash/NatCash/Binance/NOWPayments" },
+        "gatewayMode": { "type": "string", "enum": ["SANDBOX", "LIVE"], "description": "Online payment gateway mode" },
+        "moncashOnlineEnabled": { "type": "boolean", "description": "Enable MonCash Online API checkout" },
+        "natcashOnlineEnabled": { "type": "boolean", "description": "Enable NatCash Online API checkout" },
+        "binanceOnlineEnabled": { "type": "boolean", "description": "Enable Binance Pay API checkout" },
+        "nowpaymentsOnlineEnabled": { "type": "boolean", "description": "Enable NOWPayments API checkout" },
         "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update" },
         "updatedBy": { "type": "string", "description": "Admin UID who updated the config" }
       },
@@ -27,12 +33,14 @@
         "feeNowpayments", "feeBinance", "feeMeru", "feeMoncash", "feeNatcash",
         "minOrderUsd", "maxOrderUsd",
         "moncashMerchant", "natcashMerchant", "binancePayId", "meruTag",
+        "backendBaseUrl", "gatewayMode",
+        "moncashOnlineEnabled", "natcashOnlineEnabled", "binanceOnlineEnabled", "nowpaymentsOnlineEnabled",
         "updatedAt", "updatedBy"
       ]
     },
     "UserProfile": {
       "title": "UserProfile",
-      "description": "Authenticated user profile with phone number, 18+ verification, and admin block flag.",
+      "description": "Authenticated user profile with phone number, 18+ verification, admin block flag, and segregated per-gateway wallet balances.",
       "type": "object",
       "properties": {
         "userId": { "type": "string", "description": "Firebase Auth UID" },
@@ -41,6 +49,11 @@
         "phoneNumber": { "type": "string", "description": "Haitian mobile money phone number" },
         "isAgeVerified": { "type": "boolean", "description": "User confirmed 18+ age requirement" },
         "isBlocked": { "type": "boolean", "description": "Whether account is blocked by admin" },
+        "balanceMoncashHtg": { "type": "number", "description": "Segregated MonCash wallet balance in HTG" },
+        "balanceNatcashHtg": { "type": "number", "description": "Segregated NatCash wallet balance in HTG" },
+        "balanceBinanceUsd": { "type": "number", "description": "Segregated Binance Pay wallet balance in USD" },
+        "balanceMeruUsd": { "type": "number", "description": "Segregated Meru wallet balance in USD" },
+        "balanceNowpaymentsUsd": { "type": "number", "description": "Segregated NOWPayments crypto wallet balance in USD" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -48,7 +61,7 @@
     },
     "Order": {
       "title": "Order",
-      "description": "Currency exchange order created by a user and processed by Alevini admin.",
+      "description": "Currency exchange order created by a user and processed by Alevini admin or verified payment webhooks.",
       "type": "object",
       "properties": {
         "userId": { "type": "string", "description": "Owner Firebase Auth UID" },
@@ -72,6 +85,11 @@
         "payAddress": { "type": "string" },
         "payCryptoAmount": { "type": "number" },
         "externalTxRef": { "type": "string" },
+        "gatewayMode": { "type": "string", "enum": ["MANUAL", "ONLINE", "SANDBOX", "WALLET"] },
+        "gatewayOrderId": { "type": "string" },
+        "checkoutUrl": { "type": "string" },
+        "gatewayStatus": { "type": "string", "enum": ["NONE", "INITIATED", "WAITING_WEBHOOK", "CONFIRMED", "FAILED"] },
+        "orderType": { "type": "string", "enum": ["EXCHANGE", "TOPUP"] },
         "status": { "type": "string", "enum": ["PENDING", "SUBMITTED", "PAID_IN", "COMPLETED", "UNDERPAID", "REJECTED", "EXPIRED"] },
         "adminNote": { "type": "string" },
         "expiresAtMillis": { "type": "integer" },
@@ -87,6 +105,48 @@
         "payAddress", "payCryptoAmount", "externalTxRef", "status", "adminNote",
         "expiresAtMillis", "createdAt", "updatedAt"
       ]
+    },
+    "PaymentSession": {
+      "title": "PaymentSession",
+      "description": "Online payment gateway checkout session linked to an order and verified by backend webhooks.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "orderId": { "type": "string" },
+        "orderCode": { "type": "string" },
+        "provider": { "type": "string", "enum": ["nowpayments", "binance", "meru", "moncash", "natcash"] },
+        "gatewayMode": { "type": "string", "enum": ["SANDBOX", "LIVE", "ONLINE"] },
+        "gatewayOrderId": { "type": "string" },
+        "checkoutUrl": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["USD", "HTG", "EUR"] },
+        "status": { "type": "string", "enum": ["INITIATED", "CHECKOUT_OPENED", "CONFIRMED", "FAILED", "EXPIRED"] },
+        "webhookVerified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "orderId", "orderCode", "provider", "gatewayMode",
+        "gatewayOrderId", "checkoutUrl", "amount", "currency", "status",
+        "webhookVerified", "createdAt", "updatedAt"
+      ]
+    },
+    "WebhookEvent": {
+      "title": "WebhookEvent",
+      "description": "Idempotent server-verified webhook log written exclusively by the secured backend via Admin SDK.",
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" },
+        "eventId": { "type": "string" },
+        "orderId": { "type": "string" },
+        "gatewayOrderId": { "type": "string" },
+        "signatureValid": { "type": "boolean" },
+        "amountPaid": { "type": "number" },
+        "currency": { "type": "string" },
+        "outcome": { "type": "string" },
+        "receivedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["provider", "eventId", "orderId", "signatureValid", "outcome", "receivedAt"]
     },
     "TxRefClaim": {
       "title": "TxRefClaim",
@@ -137,12 +197,161 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "message", "targetUserId", "targetLabel", "isAlert", "sentBy", "createdAt"]
+    },
+    "StoreConfig": {
+      "title": "StoreConfig",
+      "description": "Digital Store pricing engine, fulfillment mode, supplier balances, gateway switches, and public stock counts.",
+      "type": "object",
+      "properties": {
+        "baseRateHtg": { "type": "number" },
+        "markupPercent": { "type": "number" },
+        "reloadlyBalanceUsd": { "type": "number" },
+        "meruBalanceUsd": { "type": "number" },
+        "reloadlyActive": { "type": "boolean" },
+        "ezpinActive": { "type": "boolean" },
+        "moncashActive": { "type": "boolean" },
+        "natcashActive": { "type": "boolean" },
+        "binanceActive": { "type": "boolean" },
+        "nowpaymentsActive": { "type": "boolean" },
+        "reloadlyLatencyMs": { "type": "integer" },
+        "ezpinLatencyMs": { "type": "integer" },
+        "availableNetflixCount": { "type": "integer" },
+        "pendingStarlinkCount": { "type": "integer" },
+        "fulfillmentMode": { "type": "string", "enum": ["AUTO", "MANUAL"] },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "baseRateHtg", "markupPercent", "reloadlyBalanceUsd", "meruBalanceUsd",
+        "reloadlyActive", "ezpinActive", "moncashActive", "natcashActive",
+        "binanceActive", "nowpaymentsActive", "reloadlyLatencyMs", "ezpinLatencyMs",
+        "availableNetflixCount", "pendingStarlinkCount", "updatedBy", "updatedAt"
+      ]
+    },
+    "StoreProduct": {
+      "title": "StoreProduct",
+      "description": "Admin-published Digital Store product or service displayed live alongside the default catalog.",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string", "enum": ["gaming", "streaming", "telecom", "cards", "ai_pro", "web_travel"] },
+        "deliveryType": { "type": "string", "enum": ["topup", "pin", "netflix_profile", "starlink"] },
+        "badge": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "usdCost": { "type": "number" },
+        "usdSell": { "type": "number" },
+        "requiresTargetAccount": { "type": "boolean" },
+        "targetAccountLabel": { "type": "string" },
+        "targetAccountHint": { "type": "string" },
+        "selectLabel": { "type": "string" },
+        "selectOptions": { "type": "array", "items": { "type": "string" } },
+        "stock": { "type": "integer" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "category", "deliveryType", "badge", "title", "subtitle",
+        "usdCost", "usdSell", "requiresTargetAccount", "targetAccountLabel",
+        "targetAccountHint", "selectLabel", "selectOptions", "stock",
+        "createdBy", "createdAt", "updatedAt"
+      ]
+    },
+    "StoreNetflixInventoryItem": {
+      "title": "StoreNetflixInventoryItem",
+      "description": "Admin-only private vault of Netflix profiles and PINs.",
+      "type": "object",
+      "properties": {
+        "accountEmail": { "type": "string" },
+        "accountPassword": { "type": "string" },
+        "profileName": { "type": "string" },
+        "profilePin": { "type": "string" },
+        "status": { "type": "string", "enum": ["AVAILABLE", "OCCUPIED"] },
+        "assignedOrderId": { "type": "string" },
+        "assignedUserId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "accountEmail", "accountPassword", "profileName", "profilePin",
+        "status", "assignedOrderId", "assignedUserId", "createdAt", "updatedAt"
+      ]
+    },
+    "StoreOrder": {
+      "title": "StoreOrder",
+      "description": "Digital Store purchase order across Gaming, Streaming/IPTV, Telecom/Starlink, Virtual Cards, AI Pro, and Web Services.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "orderCode": { "type": "string" },
+        "productId": { "type": "string" },
+        "productTitle": { "type": "string" },
+        "category": { "type": "string", "enum": ["gaming", "netflix", "starlink", "streaming", "telecom", "cards", "ai_pro", "web_travel"] },
+        "deliveryType": { "type": "string", "enum": ["topup", "pin", "netflix_profile", "starlink"] },
+        "usdCost": { "type": "number" },
+        "usdSell": { "type": "number" },
+        "amountHtg": { "type": "number" },
+        "effectiveRate": { "type": "number" },
+        "gateway": { "type": "string", "enum": ["moncash", "natcash", "binance", "nowpayments"] },
+        "targetAccount": { "type": "string" },
+        "externalTxRef": { "type": "string" },
+        "gatewayOrderId": { "type": "string" },
+        "checkoutUrl": { "type": "string" },
+        "gatewayStatus": { "type": "string", "enum": ["NONE", "INITIATED", "WAITING_WEBHOOK", "CONFIRMED", "FAILED", "WALLET_DEBITED"] },
+        "status": { "type": "string", "enum": ["PENDING", "SUBMITTED", "PAID", "DELIVERED", "REJECTED", "EXPIRED"] },
+        "deliverable": { "type": "string" },
+        "adminNote": { "type": "string" },
+        "logs": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "userEmail", "orderCode", "productId", "productTitle",
+        "category", "deliveryType", "usdCost", "usdSell", "amountHtg", "effectiveRate",
+        "gateway", "targetAccount", "externalTxRef", "gatewayOrderId", "checkoutUrl",
+        "gatewayStatus", "status", "deliverable", "adminNote", "createdAt", "updatedAt"
+      ]
+    },
+    "Investment": {
+      "title": "Investment",
+      "description": "MCSE investment contract created with atomic segregated wallet debit and approved or refunded by admin.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "investCode": { "type": "string" },
+        "categoryKey": { "type": "string", "enum": ["sans_risque", "moins_risque", "a_risque"] },
+        "categoryName": { "type": "string" },
+        "sector": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["GDS", "USD"] },
+        "durationLabel": { "type": "string" },
+        "months": { "type": "integer", "enum": [1, 3, 6, 12] },
+        "monthlyProfit": { "type": "number" },
+        "totalProfit": { "type": "number" },
+        "gatewayId": { "type": "string", "enum": ["moncash", "natcash", "binance", "nowpayments"] },
+        "gatewayName": { "type": "string" },
+        "feeAmount": { "type": "number" },
+        "totalPaid": { "type": "number" },
+        "endDateLabel": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "ACTIVE", "REJECTED"] },
+        "adminNote": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "userEmail", "investCode", "categoryKey", "categoryName", "sector",
+        "amount", "currency", "durationLabel", "months", "monthlyProfit", "totalProfit",
+        "gatewayId", "gatewayName", "feeAmount", "totalPaid", "endDateLabel",
+        "status", "adminNote", "createdAt", "updatedAt"
+      ]
     }
   },
   "firestore": {
     "/exchange_config/{configId}": {
       "schema": { "$ref": "#/entities/ExchangeConfig" },
-      "description": "Global Alevini rates and merchant numbers"
+      "description": "Global Alevini rates, merchant numbers, and online gateway configuration"
     },
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/UserProfile" },
@@ -150,7 +359,15 @@
     },
     "/orders/{orderId}": {
       "schema": { "$ref": "#/entities/Order" },
-      "description": "Exchange orders owned by users and managed by admin"
+      "description": "Exchange orders owned by users and managed by admin/webhooks"
+    },
+    "/payment_sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/PaymentSession" },
+      "description": "Online payment checkout sessions owned by users"
+    },
+    "/webhook_events/{eventId}": {
+      "schema": { "$ref": "#/entities/WebhookEvent" },
+      "description": "Backend-only webhook audit trail readable by admin"
     },
     "/tx_refs/{txRefId}": {
       "schema": { "$ref": "#/entities/TxRefClaim" },
@@ -167,6 +384,26 @@
     "/admin_notifications/{notificationId}": {
       "schema": { "$ref": "#/entities/AdminNotification" },
       "description": "Admin-broadcast or user-targeted notifications"
+    },
+    "/store_config/{configId}": {
+      "schema": { "$ref": "#/entities/StoreConfig" },
+      "description": "Digital Store pricing engine and supplier availability"
+    },
+    "/store_products/{productId}": {
+      "schema": { "$ref": "#/entities/StoreProduct" },
+      "description": "Admin-published dynamic Store products and services"
+    },
+    "/store_netflix_inventory/{itemId}": {
+      "schema": { "$ref": "#/entities/StoreNetflixInventoryItem" },
+      "description": "Admin-only encrypted Netflix profile stock"
+    },
+    "/store_orders/{orderId}": {
+      "schema": { "$ref": "#/entities/StoreOrder" },
+      "description": "User-isolated Digital Store orders and verified deliverables"
+    },
+    "/investments/{investId}": {
+      "schema": { "$ref": "#/entities/Investment" },
+      "description": "User-isolated MCSE investment requests debited atomically from segregated gateway wallets"
     }
   }
 }

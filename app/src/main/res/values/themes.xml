@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar" />
+    <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:textSelectHandle">@drawable/empty_selection_handle</item>
+        <item name="android:textSelectHandleLeft">@drawable/empty_selection_handle</item>
+        <item name="android:textSelectHandleRight">@drawable/empty_selection_handle</item>
+    </style>
 </resources>

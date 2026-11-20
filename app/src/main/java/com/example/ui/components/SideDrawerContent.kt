@@ -3,13 +3,18 @@ package com.example.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,12 +25,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.DataSaverOff
+import androidx.compose.material.icons.rounded.DataSaverOn
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PrivacyTip
+import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Visibility
@@ -41,6 +50,8 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -50,12 +61,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.domain.AppLanguage
+import com.example.data.model.CurrencyCode
 import com.example.ui.theme.EmeraldContainer
 import com.example.ui.theme.EmeraldPrimary
+import com.example.ui.theme.ForestGreen
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.GoldContainer
 import com.example.ui.theme.JetBrainsMonoFamily
@@ -69,6 +83,8 @@ import com.example.ui.theme.TextSecondary
 import com.example.ui.viewmodel.WalletSummary
 
 enum class DrawerDestination {
+    STORE,
+    ADMIN,
     NOTIFICATIONS,
     WALLET,
     LANGUAGES,
@@ -83,11 +99,14 @@ enum class DrawerDestination {
 fun AleviniDrawerSheet(
     userName: String,
     userEmail: String,
+    isAdmin: Boolean,
     walletSummary: WalletSummary,
     isBalanceHidden: Boolean,
+    isDataSaverEnabled: Boolean,
     notificationCount: Int,
     selectedLanguage: AppLanguage,
     onToggleBalanceHidden: () -> Unit,
+    onToggleDataSaver: (Boolean) -> Unit,
     onQuickDeposit: () -> Unit,
     onQuickWithdraw: () -> Unit,
     onSelectDestination: (DrawerDestination) -> Unit,
@@ -149,9 +168,12 @@ fun AleviniDrawerSheet(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "Solde du portefeuille",
+                            text = "Wallet Balance • Comptes séparés",
                             style = MaterialTheme.typography.labelMedium,
                             color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f).padding(end = 8.dp),
                         )
                         IconButton(
                             onClick = onToggleBalanceHidden,
@@ -167,58 +189,113 @@ fun AleviniDrawerSheet(
                         }
                     }
 
-                    Text(
-                        text = if (isBalanceHidden) "•••••• HTG" else "${formatNum(walletSummary.netBalanceHtg)} HTG",
-                        fontFamily = JetBrainsMonoFamily,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = EmeraldPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (isBalanceHidden) "≈ •••••• USD" else "≈ $${formatNum(walletSummary.netBalanceUsd)} USD",
-                        fontFamily = JetBrainsMonoFamily,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMuted,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        walletSummary.gateways.forEach { gw ->
+                            val balStr = if (isBalanceHidden) {
+                                "••••• ${gw.currency.code}"
+                            } else if (gw.currency == CurrencyCode.USD) {
+                                "$${formatNum(gw.balance)} USD"
+                            } else {
+                                "${formatNum(gw.balance)} HTG"
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                ) {
+                                    GatewayLogo(
+                                        method = gw.method,
+                                        size = 18.dp,
+                                        cornerRadius = 5.dp,
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = gw.method.label,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "(${formatNum(gw.feePercent)}%)",
+                                        fontFamily = JetBrainsMonoFamily,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = TextMuted,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                    )
+                                }
+                                Text(
+                                    text = balStr,
+                                    fontFamily = JetBrainsMonoFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (gw.balance > 0.0 || isBalanceHidden) EmeraldPrimary else TextSecondary,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Max),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Button(
                             onClick = onQuickDeposit,
                             shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = EmeraldPrimary,
                                 contentColor = ObsidianBg,
                             ),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(42.dp)
+                                .fillMaxHeight()
+                                .heightIn(min = 48.dp)
                                 .testTag("drawer_deposit_btn"),
                         ) {
                             Icon(Icons.Rounded.ArrowDownward, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Dépôt", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(
+                                text = "Dépôt",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                         OutlinedButton(
                             onClick = onQuickWithdraw,
                             shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                             border = BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.6f)),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldPrimary),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(42.dp)
+                                .fillMaxHeight()
+                                .heightIn(min = 48.dp)
                                 .testTag("drawer_withdraw_btn"),
                         ) {
                             Icon(Icons.Rounded.ArrowUpward, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Retrait", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text(
+                                text = "Retrait",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
                 }
@@ -236,6 +313,41 @@ fun AleviniDrawerSheet(
                 selectedIconColor = EmeraldPrimary,
                 selectedTextColor = EmeraldPrimary,
             )
+
+            NavigationDrawerItem(
+                label = { Text("Alevini Digital Store", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                icon = { Icon(Icons.Rounded.Storefront, contentDescription = null) },
+                badge = {
+                    Surface(
+                        color = EmeraldContainer,
+                        shape = RoundedCornerShape(50),
+                    ) {
+                        Text(
+                            text = "LIVE",
+                            fontFamily = JetBrainsMonoFamily,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = EmeraldPrimary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                },
+                selected = false,
+                onClick = { onSelectDestination(DrawerDestination.STORE) },
+                colors = itemColors,
+                modifier = Modifier.testTag("drawer_item_store"),
+            )
+
+            if (isAdmin) {
+                NavigationDrawerItem(
+                    label = { Text("Back-Office Admin", maxLines = 1, overflow = TextOverflow.Ellipsis, color = GoldAccent) },
+                    icon = { Icon(Icons.Rounded.AdminPanelSettings, contentDescription = null, tint = GoldAccent) },
+                    selected = false,
+                    onClick = { onSelectDestination(DrawerDestination.ADMIN) },
+                    colors = itemColors,
+                    modifier = Modifier.testTag("drawer_item_admin"),
+                )
+            }
 
             NavigationDrawerItem(
                 label = { Text("Notifications", maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -303,6 +415,59 @@ fun AleviniDrawerSheet(
                 modifier = Modifier.testTag("drawer_item_languages"),
             )
 
+            Surface(
+                color = if (isDataSaverEnabled) EmeraldContainer.copy(alpha = 0.65f) else Color.Transparent,
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .clickable { onToggleDataSaver(!isDataSaverEnabled) }
+                    .testTag("drawer_item_data_saver"),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                ) {
+                    Icon(
+                        imageVector = if (isDataSaverEnabled) Icons.Rounded.DataSaverOn else Icons.Rounded.DataSaverOff,
+                        contentDescription = null,
+                        tint = if (isDataSaverEnabled) ForestGreen else EmeraldPrimary,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
+                        Text(
+                            text = "Économie de Données",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (isDataSaverEnabled) ForestGreen else TextPrimary,
+                            fontWeight = if (isDataSaverEnabled) FontWeight.Bold else FontWeight.Medium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = if (isDataSaverEnabled) "Actif • Consommation réduite" else "Réduit la data mobile",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isDataSaverEnabled) ForestGreen.copy(alpha = 0.85f) else TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = isDataSaverEnabled,
+                        onCheckedChange = onToggleDataSaver,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = EmeraldPrimary,
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = ObsidianSurfaceElevated,
+                            uncheckedBorderColor = ObsidianOutline,
+                        ),
+                        modifier = Modifier.testTag("drawer_data_saver_toggle"),
+                    )
+                }
+            }
+
             NavigationDrawerItem(
                 label = { Text("À propos", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 icon = { Icon(Icons.Rounded.Info, contentDescription = null) },
@@ -331,8 +496,8 @@ fun AleviniDrawerSheet(
             )
 
             NavigationDrawerItem(
-                label = { Text("Téléchargement de l'application", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                icon = { Icon(Icons.Rounded.Download, contentDescription = null) },
+                label = { Text("Partager l'app • QR Code", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                icon = { Icon(Icons.Rounded.QrCode2, contentDescription = null) },
                 selected = false,
                 onClick = { onSelectDestination(DrawerDestination.DOWNLOAD) },
                 colors = itemColors,
@@ -343,25 +508,56 @@ fun AleviniDrawerSheet(
             HorizontalDivider(color = ObsidianOutline.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.height(6.dp))
 
-            NavigationDrawerItem(
-                label = {
-                    Column {
-                        Text("Support", style = MaterialTheme.typography.labelLarge, color = TextPrimary)
+            Surface(
+                color = Color.Transparent,
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 64.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .clickable { onSelectDestination(DrawerDestination.SUPPORT) }
+                    .testTag("drawer_item_support"),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.SupportAgent,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = "Support",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = TextPrimary,
+                        )
                         Text(
                             text = "supportdisponible@gmail.com",
                             style = MaterialTheme.typography.labelSmall,
                             color = EmeraldPrimary,
-                            maxLines = 1,
+                            softWrap = true,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = "Whatsapp business MCSE : +509 32153281",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary,
+                            softWrap = true,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                },
-                icon = { Icon(Icons.Rounded.SupportAgent, contentDescription = null) },
-                selected = false,
-                onClick = { onSelectDestination(DrawerDestination.SUPPORT) },
-                colors = itemColors,
-                modifier = Modifier.testTag("drawer_item_support"),
-            )
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
         }

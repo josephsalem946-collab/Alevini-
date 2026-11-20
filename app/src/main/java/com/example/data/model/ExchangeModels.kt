@@ -11,6 +11,7 @@ enum class PaymentMethod(
     val defaultCurrency: CurrencyCode,
     val supportsHtg: Boolean,
     val accountHint: String,
+    val supportsOnlineApi: Boolean = true,
 ) {
     MONCASH(
         id = "moncash",
@@ -18,6 +19,7 @@ enum class PaymentMethod(
         defaultCurrency = CurrencyCode.HTG,
         supportsHtg = true,
         accountHint = "+509 XXXX XXXX",
+        supportsOnlineApi = true,
     ),
     NATCASH(
         id = "natcash",
@@ -25,6 +27,7 @@ enum class PaymentMethod(
         defaultCurrency = CurrencyCode.HTG,
         supportsHtg = true,
         accountHint = "+509 XXXX XXXX",
+        supportsOnlineApi = true,
     ),
     BINANCE(
         id = "binance",
@@ -32,6 +35,7 @@ enum class PaymentMethod(
         defaultCurrency = CurrencyCode.USD,
         supportsHtg = false,
         accountHint = "Binance Pay ID / UID",
+        supportsOnlineApi = true,
     ),
     MERU(
         id = "meru",
@@ -39,6 +43,7 @@ enum class PaymentMethod(
         defaultCurrency = CurrencyCode.USD,
         supportsHtg = false,
         accountHint = "Tag Meru (@utilisateur)",
+        supportsOnlineApi = false,
     ),
     NOWPAYMENTS(
         id = "nowpayments",
@@ -46,6 +51,7 @@ enum class PaymentMethod(
         defaultCurrency = CurrencyCode.USD,
         supportsHtg = false,
         accountHint = "Adresse Wallet Crypto",
+        supportsOnlineApi = true,
     );
 
     companion object {
@@ -91,6 +97,19 @@ enum class OrderStatus(val label: String) {
     }
 }
 
+enum class GatewayStatus(val label: String) {
+    NONE("Non initialisé"),
+    INITIATED("Session prête"),
+    WAITING_WEBHOOK("Attente Webhook"),
+    CONFIRMED("Confirmé par Webhook"),
+    FAILED("Échec API");
+
+    companion object {
+        fun fromString(value: String): GatewayStatus =
+            entries.firstOrNull { it.name == value } ?: NONE
+    }
+}
+
 @IgnoreExtraProperties
 data class ExchangeConfig(
     val usdToHtgBuy: Double = 134.50,
@@ -107,6 +126,12 @@ data class ExchangeConfig(
     val natcashMerchant: String = "+509 3215 3281",
     val binancePayId: String = "ALEVINI-BINANCE-PAY",
     val meruTag: String = "@alevini.ht",
+    val backendBaseUrl: String = "",
+    val gatewayMode: String = "SANDBOX",
+    val moncashOnlineEnabled: Boolean = true,
+    val natcashOnlineEnabled: Boolean = true,
+    val binanceOnlineEnabled: Boolean = true,
+    val nowpaymentsOnlineEnabled: Boolean = true,
     @ServerTimestamp val updatedAt: Timestamp? = null,
     val updatedBy: String = "",
 ) {
@@ -116,6 +141,14 @@ data class ExchangeConfig(
         PaymentMethod.MERU -> feeMeru
         PaymentMethod.MONCASH -> feeMoncash
         PaymentMethod.NATCASH -> feeNatcash
+    }
+
+    fun isOnlineEnabledFor(method: PaymentMethod): Boolean = when (method) {
+        PaymentMethod.MONCASH -> moncashOnlineEnabled
+        PaymentMethod.NATCASH -> natcashOnlineEnabled
+        PaymentMethod.BINANCE -> binanceOnlineEnabled
+        PaymentMethod.NOWPAYMENTS -> nowpaymentsOnlineEnabled
+        PaymentMethod.MERU -> false
     }
 }
 
@@ -154,12 +187,49 @@ data class ExchangeOrder(
     val payAddress: String = "",
     val payCryptoAmount: Double = 0.0,
     val externalTxRef: String = "",
+    val gatewayMode: String = "MANUAL",
+    val gatewayOrderId: String = "",
+    val checkoutUrl: String = "",
+    val gatewayStatus: String = "NONE",
+    val orderType: String = "EXCHANGE",
     val status: String = "PENDING",
     val adminNote: String = "",
     val expiresAtMillis: Long = 0L,
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null,
     val completedAt: Timestamp? = null,
+)
+
+@IgnoreExtraProperties
+data class PaymentSession(
+    @DocumentId val id: String = "",
+    val userId: String = "",
+    val orderId: String = "",
+    val orderCode: String = "",
+    val provider: String = "",
+    val gatewayMode: String = "SANDBOX",
+    val gatewayOrderId: String = "",
+    val checkoutUrl: String = "",
+    val amount: Double = 0.0,
+    val currency: String = "USD",
+    val status: String = "INITIATED",
+    val webhookVerified: Boolean = false,
+    @ServerTimestamp val createdAt: Timestamp? = null,
+    @ServerTimestamp val updatedAt: Timestamp? = null,
+)
+
+@IgnoreExtraProperties
+data class WebhookEvent(
+    @DocumentId val id: String = "",
+    val provider: String = "",
+    val eventId: String = "",
+    val orderId: String = "",
+    val gatewayOrderId: String = "",
+    val signatureValid: Boolean = false,
+    val amountPaid: Double = 0.0,
+    val currency: String = "USD",
+    val outcome: String = "",
+    @ServerTimestamp val receivedAt: Timestamp? = null,
 )
 
 @IgnoreExtraProperties
@@ -171,8 +241,32 @@ data class UserProfile(
     val phoneNumber: String = "",
     val isAgeVerified: Boolean = true,
     val isBlocked: Boolean = false,
+    val balanceMoncashHtg: Double = 0.0,
+    val balanceNatcashHtg: Double = 0.0,
+    val balanceBinanceUsd: Double = 0.0,
+    val balanceMeruUsd: Double = 0.0,
+    val balanceNowpaymentsUsd: Double = 0.0,
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null,
+) {
+    fun balanceFor(method: PaymentMethod): Double = when (method) {
+        PaymentMethod.MONCASH -> balanceMoncashHtg
+        PaymentMethod.NATCASH -> balanceNatcashHtg
+        PaymentMethod.BINANCE -> balanceBinanceUsd
+        PaymentMethod.MERU -> balanceMeruUsd
+        PaymentMethod.NOWPAYMENTS -> balanceNowpaymentsUsd
+    }
+
+    fun currencyFor(method: PaymentMethod): CurrencyCode = method.defaultCurrency
+}
+
+data class GatewayWalletItem(
+    val method: PaymentMethod,
+    val balance: Double,
+    val currency: CurrencyCode,
+    val feePercent: Double,
+    val totalTopUps: Double,
+    val totalSpent: Double,
 )
 
 @IgnoreExtraProperties

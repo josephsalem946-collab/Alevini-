@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Alevini Digital Hub — Services Digitaux & Régie Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            alv: {
+              bg: '#0b140e',
+              surface: '#0f1b13',
+              card: '#111f16',
+              cardSelected: '#132a1c',
+              border: '#1d3525',
+              borderBright: '#22c55e',
+              green: '#22c55e',
+              greenDark: '#166534',
+              gold: '#eab308',
+              amber: '#f59e0b',
+              blueBg: '#102a43',
+              blueText: '#38bdf8',
+              text: '#f0fdf4',
+              muted: '#94a3b8'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: #060b08;
+      color: #f0fdf4;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    /* Masquer la barre de défilement horizontale tout en gardant le scroll fluide */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Animation pulse douce pour LIVE API */
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .live-dot {
+      animation: pulseDot 1.8s infinite ease-in-out;
+    }
+    /* Custom scrollbar discrète pour desktop */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b140e;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1d3525;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex justify-center bg-[#060b08]">
+
+  <!-- Conteneur Mobile-First centré (pleine largeur sur mobile, cadre élégant sur grand écran) -->
+  <div id="app-shell" class="w-full max-w-[480px] min-h-screen bg-[#0b140e] border-x border-[#1d3525]/60 flex flex-col relative shadow-2xl">
+
+    <!-- ==================== HEADER FIXE EN HAUT ==================== -->
+    <header class="sticky top-0 z-30 bg-[#0b140e]/95 backdrop-blur-md border-b border-[#1d3525] px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Menu Hamburger -->
+        <button onclick="toggleDrawer()" aria-label="Menu" class="p-2 -ml-2 rounded-xl text-[#f0fdf4] hover:bg-[#111f16] active:scale-95 transition">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <!-- Logo carré vert monogramme A -->
+        <div class="w-9 h-9 rounded-xl bg-[#112619] border border-[#22c55e]/40 flex items-center justify-center shadow-inner">
+          <svg class="w-5 h-5 text-[#22c55e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 18L10 6L14 14L17 8L20 18M7 14H13"/>
+          </svg>
+        </div>
+        <span class="text-[#22c55e] font-bold tracking-wider text-lg">ALEVINI</span>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <!-- Cloche de notification -->
+        <button onclick="showNotifications()" class="relative p-2 rounded-xl hover:bg-[#111f16] text-[#f0fdf4] transition">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+          </svg>
+          <span id="notif-badge" class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#22c55e] ring-2 ring-[#0b140e]"></span>
+        </button>
+        <!-- Bouton pilule ADMIN -->
+        <button onclick="openAdminModal()" class="px-3.5 py-1.5 rounded-full bg-[#13261a] border border-[#22c55e]/30 text-[#eab308] text-xs font-bold tracking-wider hover:bg-[#1a3323] active:scale-95 transition">
+          ADMIN
+        </button>
+      </div>
+    </header>
+
+    <!-- ==================== ZONE DE CONTENU PRINCIPALE ==================== -->
+    <main id="main-content" class="flex-1 pb-24 overflow-y-auto">
+      <!-- Le contenu dynamique est injecté ici selon l'onglet actif de la barre inférieure -->
+    </main>
+
+    <!-- ==================== BARRE DE NAVIGATION INFÉRIEURE ==================== -->
+    <nav class="fixed bottom-0 z-30 w-full max-w-[480px] bg-[#0b140e]/95 backdrop-blur-md border-t border-[#1d3525] px-2 py-2 flex items-center justify-around">
+      <button onclick="switchBottomTab('exchange')" data-nav="exchange" class="nav-btn flex flex-col items-center justify-center py-1 px-3 rounded-2xl text-[#94a3b8] hover:text-[#f0fdf4] transition">
+        <div class="nav-pill px-3.5 py-1 rounded-full mb-0.5 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </div>
+        <span class="text-[11px] font-medium">Échanger</span>
+      </button>
+
+      <button onclick="switchBottomTab('deposit')" data-nav="deposit" class="nav-btn flex flex-col items-center justify-center py-1 px-3 rounded-2xl text-[#94a3b8] hover:text-[#f0fdf4] transition">
+        <div class="nav-pill px-3.5 py-1 rounded-full mb-0.5 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+          </svg>
+        </div>
+        <span class="text-[11px] font-medium">Dépôt</span>
+      </button>
+
+      <button onclick="switchBottomTab('store')" data-nav="store" class="nav-btn flex flex-col items-center justify-center py-1 px-3 rounded-2xl text-[#22c55e] transition">
+        <div class="nav-pill bg-[#163322] px-4 py-1 rounded-full mb-0.5 transition">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M18.36 9l.6 3H5.04l.6-3h12.72M20 4H4v2h16V4zm0 3H4l-1 5v2h1v6h10v-6h4v6h2v-6h1v-2l-1-5zM6 18v-4h6v4H6z"/>
+          </svg>
+        </div>
+        <span class="text-[11px] font-semibold">Store</span>
+      </button>
+
+      <button onclick="switchBottomTab('orders')" data-nav="orders" class="nav-btn relative flex flex-col items-center justify-center py-1 px-3 rounded-2xl text-[#94a3b8] hover:text-[#f0fdf4] transition">
+        <div class="nav-pill px-3.5 py-1 rounded-full mb-0.5 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <span class="text-[11px] font-medium">Ordres</span>
+        <span id="orders-nav-count" class="hidden absolute top-0.5 right-2.5 bg-[#eab308] text-[#0b140e] text-[9px] font-extrabold px-1.5 rounded-full">0</span>
+      </button>
+
+      <button onclick="switchBottomTab('security')" data-nav="security" class="nav-btn flex flex-col items-center justify-center py-1 px-3 rounded-2xl text-[#94a3b8] hover:text-[#f0fdf4] transition">
+        <div class="nav-pill px-3.5 py-1 rounded-full mb-0.5 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        <span class="text-[11px] font-medium">Sécurité</span>
+      </button>
+    </nav>
+
+    <!-- ==================== DRAWER MENU LATÉRAL ==================== -->
+    <div id="side-drawer" class="hidden fixed inset-0 z-50 flex">
+      <div onclick="toggleDrawer()" class="fixed inset-0 bg-black/70 backdrop-blur-xs"></div>
+      <div class="relative w-72 max-w-[82vw] bg-[#0f1b13] border-r border-[#1d3525] h-full p-5 flex flex-col justify-between z-10">
+        <div>
+          <div class="flex items-center justify-between pb-4 border-b border-[#1d3525]">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-[#132a1c] border border-[#22c55e] flex items-center justify-center font-bold text-[#22c55e]">A</div>
+              <div>
+                <div class="font-bold text-sm text-[#f0fdf4]">Alevini Digital Hub</div>
+                <div class="text-[11px] text-[#22c55e]">Compte Vérifié • Haïti</div>
+              </div>
+            </div>
+            <button onclick="toggleDrawer()" class="p-1.5 rounded-lg text-[#94a3b8] hover:text-white">✕</button>
+          </div>
+
+          <!-- Soldes rapides -->
+          <div class="mt-4 p-3.5 rounded-2xl bg-[#111f16] border border-[#1d3525] space-y-2">
+            <div class="text-[11px] uppercase tracking-wider text-[#94a3b8] font-semibold">Portefeuilles Actifs</div>
+            <div class="flex justify-between text-xs">
+              <span class="text-[#94a3b8]">MonCash (HTG)</span>
+              <span id="drawer-moncash" class="font-mono font-bold text-[#22c55e]">0 HTG</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-[#94a3b8]">NatCash (HTG)</span>
+              <span id="drawer-natcash" class="font-mono font-bold text-[#22c55e]">0 HTG</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-[#94a3b8]">Binance / Crypto</span>
+              <span id="drawer-usd" class="font-mono font-bold text-[#eab308]">$0.00 USD</span>
+            </div>
+          </div>
+
+          <div class="mt-5 space-y-1.5">
+            <button onclick="toggleDrawer(); switchBottomTab('store');" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-[#132a1c] text-sm font-medium flex items-center gap-3">
+              <span>🛍️</span> Catalogue Digital Complet
+            </button>
+            <button onclick="toggleDrawer(); switchBottomTab('deposit');" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-[#132a1c] text-sm font-medium flex items-center gap-3">
+              <span>💳</span> Recharger Portefeuille
+            </button>
+            <button onclick="toggleDrawer(); switchBottomTab('orders');" class="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-[#132a1c] text-sm font-medium flex items-center gap-3">
+              <span>📦</span> Mes Commandes & Codes
+            </button>
+            <button onclick="toggleDrawer(); openAdminModal();" class="w-full text-left px-3.5 py-2.5 rounded-xl bg-[#eab308]/10 border border-[#eab308]/30 text-[#eab308] text-sm font-semibold flex items-center gap-3 mt-3">
+              <span>🛡️</span> Ouvrir Régie Admin
+            </button>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-[#1d3525] text-[11px] text-[#94a3b8] flex items-center justify-between">
+          <span>API Meru VCC & Reloadly</span>
+          <span class="text-[#22c55e] font-semibold">● En ligne</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL RÉGIE ADMIN COMPLÈTE ==================== -->
+    <div id="admin-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex justify-center overflow-y-auto">
+      <div class="w-full max-w-[480px] min-h-screen bg-[#0b140e] border-x border-[#1d3525] flex flex-col">
+        <!-- Header Admin -->
+        <div class="sticky top-0 z-20 bg-[#0f1b13] border-b border-[#1d3525] px-4 py-3.5 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-xl bg-[#eab308]/15 border border-[#eab308]/40 flex items-center justify-center text-[#eab308]">🛡️</span>
+            <div>
+              <h2 class="font-bold text-base text-[#f0fdf4] leading-tight">Régie Admin Alevini</h2>
+              <p class="text-[11px] text-[#eab308]">Contrôle Financier, API & Validation</p>
+            </div>
+          </div>
+          <button onclick="closeAdminModal()" class="px-3 py-1.5 rounded-xl bg-[#111f16] border border-[#1d3525] text-xs font-semibold text-[#94a3b8] hover:text-white">
+            Fermer ✕
+          </button>
+        </div>
+
+        <!-- Onglets internes Admin -->
+        <div class="flex border-b border-[#1d3525] bg-[#0d1711] px-2 overflow-x-auto no-scrollbar">
+          <button onclick="switchAdminTab('dashboard')" data-admintab="dashboard" class="admin-tab-btn px-3.5 py-2.5 text-xs font-semibold border-b-2 border-[#eab308] text-[#eab308] whitespace-nowrap">
+            📊 Finances & Mode
+          </button>
+          <button onclick="switchAdminTab('orders')" data-admintab="orders" class="admin-tab-btn px-3.5 py-2.5 text-xs font-semibold border-b-2 border-transparent text-[#94a3b8] whitespace-nowrap flex items-center gap-1.5">
+            📋 File Ordres <span id="admin-pending-badge" class="bg-[#f59e0b] text-[#0b140e] text-[10px] font-extrabold px-1.5 rounded-full">0</span>
+          </button>
+          <button onclick="switchAdminTab('catalog')" data-admintab="catalog" class="admin-tab-btn px-3.5 py-2.5 text-xs font-semibold border-b-2 border-transparent text-[#94a3b8] whitespace-nowrap">
+            ➕ Catalogue & Stock
+          </button>
+        </div>
+
+        <!-- Contenu dynamique Admin -->
+        <div id="admin-content" class="p-4 space-y-4 flex-1 pb-12">
+          <!-- Injecté par JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL DÉPÔT RAPIDE (QUAND SOLDE INSUFFISANT) ==================== -->
+    <div id="quick-deposit-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+      <div class="w-full max-w-[440px] bg-[#111f16] border border-[#1d3525] rounded-3xl p-5 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-base text-[#f0fdf4]">Recharger le portefeuille</h3>
+            <p id="qd-subtitle" class="text-xs text-[#94a3b8]">Crédit instantané pour tester vos achats</p>
+          </div>
+          <button onclick="closeQuickDeposit()" class="w-8 h-8 rounded-full bg-[#0b140e] text-[#94a3b8] flex items-center justify-center">✕</button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2" id="qd-presets">
+          <!-- Boutons montants injectés par JS -->
+        </div>
+
+        <div>
+          <label class="block text-xs text-[#94a3b8] mb-1.5">Montant personnalisé</label>
+          <input id="qd-amount-input" type="number" class="w-full bg-[#0b140e] border border-[#1d3525] focus:border-[#22c55e] rounded-xl px-3.5 py-2.5 text-sm font-mono text-[#f0fdf4] outline-none" placeholder="Ex: 15000" />
+        </div>
+
+        <div class="p-3 rounded-xl bg-[#0b140e] border border-[#1d3525] text-[11px] text-[#94a3b8] flex items-center justify-between">
+          <span>Passerelle : <strong id="qd-gateway-name" class="text-[#22c55e]">MonCash</strong></span>
+          <span>Confirmation simulée 0s</span>
+        </div>
+
+        <button onclick="confirmQuickDeposit()" class="w-full py-3.5 rounded-2xl bg-[#22c55e] hover:bg-[#16a34a] text-[#052e16] font-bold text-sm transition active:scale-[0.99]">
+          Confirmer le Dépôt Maintenant
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== TOAST NOTIFICATION ==================== -->
+    <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[440px] pointer-events-none flex flex-col gap-2"></div>
+
+  </div>
+
+  <!-- ==================== LOGIQUE JAVASCRIPT COMPLÈTE ==================== -->
+  <script>
+    // =========================================================================
+    // 1. ÉTAT GLOBAL DE L'APPLICATION (STATE MANAGEMENT)
+    // =========================================================================
+    const state = {
+      exchangeRate: 141.78, // Taux modifiable en direct dans Régie Admin
+      activeBottomTab: 'store', // 'exchange' | 'deposit' | 'store' | 'orders' | 'security'
+      activeStoreCategory: 'gaming', // 'gaming' | 'streaming' | 'telecom' | 'cards' | 'ai_pro' | 'web_travel' | 'my_orders'
+      selectedProductId: 'ff-100',
+      selectedGateway: 'moncash', // 'moncash' | 'natcash' | 'binance' | 'crypto'
+      
+      // Mode d'exécution global (Régie Admin) : 'auto' (Full API) ou 'manual' (Validation Humaine)
+      fulfillmentMode: 'auto',
+      // Overrides par catégorie si souhaité
+      categoryAutoMode: {
+        gaming: true,
+        streaming: true,
+        telecom: true,
+        cards: true,
+        ai_pro: false,
+        web_travel: false
+      },
+
+      // Soldes Client (Portefeuilles) - Initialisé à 0 HTG sur MonCash comme sur la capture 2 pour montrer l'alerte + bouton Recharger
+      wallets: {
+        moncash: 0,
+        natcash: 2500,
+        binance: 15.00,
+        crypto: 0.00
+      },
+
+      // Soldes Fournisseurs Régie Admin
+      adminBalances: {
+        meruVccUsd: 1450.00,
+        reloadlyUsd: 820.50,
+        seagmUsd: 640.00
+      },
+
+      // Catégories de la barre d'onglets horizontale
+      categories: [
+        { id: 'gaming', label: 'Coins & Jeux', icon: '🎮' },
+        { id: 'streaming', label: 'Streaming & TV', icon: '🎬' },
+        { id: 'telecom', label: 'Starlink & Télécom', icon: '🛰️' },
+        { id: 'cards', label: 'Cartes & VCC', icon: '💳' },
+        { id: 'ai_pro', label: 'IA & Outils Pro', icon: '🤖' },
+        { id: 'web_travel', label: 'Web & Réservations', icon: '🌐' },
+        { id: 'my_orders', label: 'Mes Commandes', icon: '📦' }
+      ],
+
+      // Catalogue complet des produits existants + nouveaux services demandés
+      products: [
+        // --- 1. COINS & JEUX ---
+        {
+          id: 'ff-100',
+          category: 'gaming',
+          tag: 'FREE FIRE',
+          tagIcon: '🎮',
+          badge: 'API DIRECT',
+          title: '100 + 10 Diamants',
+          subtitle: 'Livraison Directe via Player ID',
+          usdPrice: 1.35,
+          stock: 999,
+          inputType: 'player_id',
+          inputLabel: 'Player ID / UID Free Fire',
+          inputPlaceholder: 'Ex: 2489104572'
+        },
+        {
+          id: 'ff-520',
+          category: 'gaming',
+          tag: 'FREE FIRE',
+          tagIcon: '🎮',
+          badge: 'API DIRECT',
+          title: '520 + 52 Diamants',
+          subtitle: 'Recharge API Reloadly Instantanée',
+          usdPrice: 6.20,
+          stock: 999,
+          inputType: 'player_id',
+          inputLabel: 'Player ID / UID Free Fire',
+          inputPlaceholder: 'Ex: 2489104572'
+        },
+        {
+          id: 'pubg-325',
+          category: 'gaming',
+          tag: 'PUBG MOBILE',
+          tagIcon: '🎮',
+          badge: 'PIN INSTANT',
+          title: '325 UC Global',
+          subtitle: 'Code PIN Global (Midasbuy / EZPin)',
+          usdPrice: 5.90,
+          stock: 48,
+          inputType: 'player_id',
+          inputLabel: 'PUBG Player ID (ou Email pour PIN)',
+          inputPlaceholder: 'Ex: 5192837465'
+        },
+        {
+          id: 'mlbb-257',
+          category: 'gaming',
+          tag: 'MOBILE LEGENDS',
+          tagIcon: '🎮',
+          badge: 'API DIRECT',
+          title: '257 Diamants + Bonus',
+          subtitle: 'User ID + Zone ID Requis',
+          usdPrice: 5.60,
+          stock: 999,
+          inputType: 'mlbb_id',
+          inputLabel: 'User ID + Zone ID (Ex: 12345678 (2045))',
+          inputPlaceholder: '12345678 (2045)'
+        },
+        {
+          id: 'roblox-10',
+          category: 'gaming',
+          tag: 'ROBLOX US',
+          tagIcon: '🎮',
+          badge: 'PIN INSTANT',
+          title: 'Carte Cadeau $10',
+          subtitle: 'Code PIN Digital 800 Robux',
+          usdPrice: 11.50,
+          stock: 32,
+          inputType: 'email',
+          inputLabel: 'Email ou WhatsApp de réception PIN',
+          inputPlaceholder: 'client@email.com / +509...'
+        },
+        {
+          id: 'psn-20',
+          category: 'gaming',
+          tag: 'PLAYSTATION US',
+          tagIcon: '🎮',
+          badge: 'PIN INSTANT',
+          title: 'Carte PSN $20 USD',
+          subtitle: 'Code PSN Compte USA',
+          usdPrice: 22.50,
+          stock: 19,
+          inputType: 'email',
+          inputLabel: 'Email de livraison du code PSN',
+          inputPlaceholder: 'gamer@email.com'
+        },
+        {
+          id: 'steam-xbox-25',
+          category: 'gaming',
+          tag: 'STEAM / XBOX / RAZER',
+          tagIcon: '🎮',
+          badge: 'PIN INSTANT',
+          title: 'Carte Gaming Multi-Store $25',
+          subtitle: 'Steam Wallet, Xbox Live ou Razer Gold PIN',
+          usdPrice: 27.50,
+          stock: 25,
+          inputType: 'select_and_email',
+          selectLabel: 'Plateforme souhaitée',
+          selectOptions: ['Steam Wallet US ($25)', 'Xbox Game Pass / Gift ($25)', 'Razer Gold Global ($25)'],
+          inputLabel: 'Email de réception du code',
+          inputPlaceholder: 'joueur@email.com'
+        },
+
+        // --- 2. STREAMING & TV ---
+        {
+          id: 'netflix-uhd',
+          category: 'streaming',
+          tag: 'NETFLIX 4K',
+          tagIcon: '🎬',
+          badge: 'STOCK AUTO',
+          title: 'Netflix Ultra HD (1 Mois)',
+          subtitle: 'Profil Privé PIN ou Compte Complet • Meru VCC',
+          usdPrice: 5.50,
+          stock: 42,
+          inputType: 'select_and_email',
+          selectLabel: 'Formule Netflix',
+          selectOptions: ['1 Profil Privé PIN (4K UHD)', 'Renouvellement Compte Existant'],
+          inputLabel: 'WhatsApp ou Email pour identifiants',
+          inputPlaceholder: '+509 3700-0000 ou email@mail.com'
+        },
+        {
+          id: 'iptv-pro',
+          category: 'streaming',
+          tag: 'IPTV SPORT & TV',
+          tagIcon: '📺',
+          badge: 'API DIRECT',
+          title: 'IPTV Pro 4K — Ligue des Champions & Liga',
+          subtitle: '+18,000 Chaînes (beIN, Canal+, Premier League, VOD)',
+          usdPrice: 12.00,
+          stock: 150,
+          inputType: 'select_and_email',
+          selectLabel: 'Durée & Application',
+          selectOptions: ['1 Mois (Xtream / M3U)', '3 Mois Pack Foot ($30 eq.)', '6 Mois VIP ($55 eq.)', '12 Mois Intégral ($95 eq.)'],
+          inputLabel: 'WhatsApp / Email (Code Xtream instantané)',
+          inputPlaceholder: '+509 ... ou client@email.com'
+        },
+        {
+          id: 'spotify-apple',
+          category: 'streaming',
+          tag: 'MUSIQUE HD',
+          tagIcon: '🎵',
+          badge: 'MERU VCC',
+          title: 'Spotify Premium / Apple Music (1 Mois)',
+          subtitle: 'Activation sur votre compte ou invitation Famille',
+          usdPrice: 4.90,
+          stock: 80,
+          inputType: 'select_and_email',
+          selectLabel: 'Service Musical',
+          selectOptions: ['Spotify Premium Individuel', 'Spotify Duo / Famille', 'Apple Music Individuel'],
+          inputLabel: 'Email du compte Spotify / Apple ID',
+          inputPlaceholder: 'musique@email.com'
+        },
+        {
+          id: 'prime-disney-yt',
+          category: 'streaming',
+          tag: 'PACK STREAMING',
+          tagIcon: '🎬',
+          badge: 'MERU VCC',
+          title: 'Prime Video / Disney+ / YouTube Premium',
+          subtitle: 'Sans publicité • Paiement réglé via Carte Meru',
+          usdPrice: 6.50,
+          stock: 65,
+          inputType: 'select_and_email',
+          selectLabel: 'Plateforme choisie',
+          selectOptions: ['YouTube Premium + Music (1 Mois)', 'Disney+ Premium 4K (1 Mois)', 'Amazon Prime Video (1 Mois)'],
+          inputLabel: 'Email du compte à activer',
+          inputPlaceholder: 'client@gmail.com'
+        },
+
+        // --- 3. STARLINK & TÉLÉCOM (fidèle à Capture 1 + Top-up & eSIM) ---
+        {
+          id: 'starlink-res',
+          category: 'telecom',
+          tag: 'HAÏTI / DOM',
+          tagIcon: '🛰️',
+          badge: 'MERU VCC',
+          title: 'Starlink Résidentiel ($60)',
+          subtitle: 'Paiement Mensuel via Carte Meru USD',
+          usdPrice: 68.00,
+          stock: 999,
+          inputType: 'starlink',
+          inputLabel: 'Email compte Starlink ou N° Kit / ACC',
+          inputPlaceholder: 'Ex: ACC-2948102-84 ou email@starlink.com'
+        },
+        {
+          id: 'starlink-roam-100',
+          category: 'telecom',
+          tag: 'VOYAGE',
+          tagIcon: '🛰️',
+          badge: 'MERU VCC',
+          title: 'Starlink Roam 100 Go ($55)',
+          subtitle: 'Facture Roam Réglée via Meru',
+          usdPrice: 63.00,
+          stock: 999,
+          inputType: 'starlink',
+          inputLabel: 'Email compte Starlink ou N° Kit / ACC',
+          inputPlaceholder: 'Ex: ACC-2948102-84'
+        },
+        {
+          id: 'starlink-roam-unl',
+          category: 'telecom',
+          tag: 'POPULAIRE',
+          tagIcon: '🛰️',
+          badge: 'MERU VCC',
+          title: 'Starlink Roam Illimité ($100)',
+          subtitle: 'Renouvellement Global via Carte Meru',
+          usdPrice: 110.00,
+          stock: 999,
+          inputType: 'starlink',
+          inputLabel: 'Email compte Starlink ou N° Kit / ACC',
+          inputPlaceholder: 'Ex: ACC-2948102-84'
+        },
+        {
+          id: 'topup-digicel-natcom',
+          category: 'telecom',
+          tag: 'DIGICEL / NATCOM',
+          tagIcon: '📱',
+          badge: 'API DIRECT',
+          title: 'Recharge Mobile & Plan Data Haïti',
+          subtitle: 'Top-up instantané Digicel & Natcom (+509)',
+          usdPrice: 5.00,
+          stock: 999,
+          inputType: 'select_and_phone',
+          selectLabel: 'Opérateur & Forfait',
+          selectOptions: ['Digicel — Recharge Crédit ($5 USD eq.)', 'Digicel — Plan Internet Illimité 7j', 'Natcom — Recharge Crédit ($5 USD eq.)', 'Natcom — Plan Data Giga+'],
+          inputLabel: 'Numéro de téléphone Haïti (+509)',
+          inputPlaceholder: '+509 37 12 3456'
+        },
+        {
+          id: 'esim-travel',
+          category: 'telecom',
+          tag: 'eSIM VOYAGE',
+          tagIcon: '✈️',
+          badge: 'PIN INSTANT',
+          title: 'eSIM Internationale (USA / RD / Canada)',
+          subtitle: 'Airalo & Holafly • QR Code immédiat avant décollage',
+          usdPrice: 14.50,
+          stock: 120,
+          inputType: 'select_and_email',
+          selectLabel: 'Destination & Data',
+          selectOptions: ['République Dominicaine — 5 Go / 15 Jours', 'États-Unis (USA) — 10 Go / 30 Jours', 'Canada — 5 Go / 15 Jours', 'Multi-Pays Amériques — 10 Go'],
+          inputLabel: 'Email pour recevoir le QR Code eSIM',
+          inputPlaceholder: 'voyageur@email.com'
+        },
+
+        // --- 4. CARTES & VCC ---
+        {
+          id: 'meru-vcc-10',
+          category: 'cards',
+          tag: 'MERU VCC VISA',
+          tagIcon: '💳',
+          badge: 'MERU VCC',
+          title: 'Carte Virtuelle Préchargée $10 USD',
+          subtitle: 'Compatible Shein, Temu, Amazon, PayPal, Netflix',
+          usdPrice: 12.50,
+          stock: 60,
+          inputType: 'email',
+          inputLabel: 'Email / WhatsApp pour détails de la carte',
+          inputPlaceholder: 'acheteur@email.com'
+        },
+        {
+          id: 'meru-vcc-25',
+          category: 'cards',
+          tag: 'MERU VCC VISA',
+          tagIcon: '💳',
+          badge: 'MERU VCC',
+          title: 'Carte Virtuelle Préchargée $25 USD',
+          subtitle: 'Numéro Visa/Mastercard + CVV + Adresse US',
+          usdPrice: 28.50,
+          stock: 45,
+          inputType: 'email',
+          inputLabel: 'Email / WhatsApp de livraison sécurisée',
+          inputPlaceholder: 'acheteur@email.com'
+        },
+        {
+          id: 'meru-vcc-50',
+          category: 'cards',
+          tag: 'MERU VCC PRO',
+          tagIcon: '💳',
+          badge: 'MERU VCC',
+          title: 'Carte Virtuelle Préchargée $50 USD',
+          subtitle: 'Idéal achats en gros, Ads Facebook/TikTok & vols',
+          usdPrice: 55.00,
+          stock: 30,
+          inputType: 'email',
+          inputLabel: 'Email / WhatsApp de livraison sécurisée',
+          inputPlaceholder: 'pro@email.com'
+        },
+        {
+          id: 'apple-google-card',
+          category: 'cards',
+          tag: 'APP STORE / PLAY',
+          tagIcon: '🎁',
+          badge: 'PIN INSTANT',
+          title: 'Carte Cadeau Apple iTunes / Google Play $15',
+          subtitle: 'Code US officiel pour iCloud, apps & jeux',
+          usdPrice: 17.20,
+          stock: 75,
+          inputType: 'select_and_email',
+          selectLabel: 'Boutique d’application',
+          selectOptions: ['Apple App Store & iTunes US ($15)', 'Google Play Store US ($15)', 'Amazon.com Gift Card ($15)'],
+          inputLabel: 'Email de réception du code',
+          inputPlaceholder: 'user@icloud.com'
+        },
+
+        // --- 5. IA & OUTILS PRO ---
+        {
+          id: 'chatgpt-claude',
+          category: 'ai_pro',
+          tag: 'INTELLIGENCE ARTIFICIELLE',
+          tagIcon: '🤖',
+          badge: 'MERU VCC',
+          title: 'ChatGPT Plus (GPT-4o) / Claude Pro (1 Mois)',
+          subtitle: 'Abonnement officiel réglé par carte internationale',
+          usdPrice: 23.50,
+          stock: 999,
+          inputType: 'select_and_email',
+          selectLabel: 'Modèle IA choisi',
+          selectOptions: ['ChatGPT Plus (OpenAI — 1 Mois)', 'Claude Pro (Anthropic — 1 Mois)', 'Midjourney Basic Plan (1 Mois)'],
+          inputLabel: 'Email du compte OpenAI / Claude',
+          inputPlaceholder: 'createur@email.com'
+        },
+        {
+          id: 'canva-capcut',
+          category: 'ai_pro',
+          tag: 'CRÉATION & DESIGN',
+          tagIcon: '🎨',
+          badge: 'STOCK AUTO',
+          title: 'Canva Pro / CapCut Pro (1 Mois)',
+          subtitle: 'Export 4K sans filigrane & outils IA débloqués',
+          usdPrice: 7.50,
+          stock: 110,
+          inputType: 'select_and_email',
+          selectLabel: 'Logiciel créatif',
+          selectOptions: ['Canva Pro Équipe/Individuel (1 Mois)', 'CapCut Pro Mobile & Desktop (1 Mois)', 'InShot Pro / Picsart Gold'],
+          inputLabel: 'Email du compte Canva ou CapCut',
+          inputPlaceholder: 'designer@email.com'
+        },
+        {
+          id: 'ms365-adobe',
+          category: 'ai_pro',
+          tag: 'PRODUCTIVITÉ PRO',
+          tagIcon: '💼',
+          badge: 'MERU VCC',
+          title: 'Microsoft 365 / Google Workspace / Adobe CC',
+          subtitle: 'Licences officielles entreprises, graphistes & étudiants',
+          usdPrice: 14.00,
+          stock: 50,
+          inputType: 'select_and_email',
+          selectLabel: 'Suite logicielle',
+          selectOptions: ['Microsoft 365 Personnel (Word, Excel, 1To)', 'Google Workspace Business Starter', 'Adobe Creative Cloud (Photoshop + Premiere)'],
+          inputLabel: 'Email professionnel de licence',
+          inputPlaceholder: 'contact@entreprise.ht'
+        },
+        {
+          id: 'vpn-verified',
+          category: 'ai_pro',
+          tag: 'SÉCURITÉ & RÉSEAUX',
+          tagIcon: '🔒',
+          badge: 'MERU VCC',
+          title: 'NordVPN / ExpressVPN / Meta Verified',
+          subtitle: 'Protection IP dédiée ou badge certifié Instagram/FB',
+          usdPrice: 16.50,
+          stock: 70,
+          inputType: 'select_and_email',
+          selectLabel: 'Service souhaité',
+          selectOptions: ['NordVPN / Surfshark (1 Mois)', 'ExpressVPN Premium (1 Mois)', 'Meta Verified (Instagram / Facebook)', 'LinkedIn Premium Career'],
+          inputLabel: 'Email ou @NomUtilisateur à activer',
+          inputPlaceholder: '@moncompte ou email@mail.com'
+        },
+
+        // --- 6. WEB & RÉSERVATIONS ---
+        {
+          id: 'domain-hosting',
+          category: 'web_travel',
+          tag: 'WEB & CLOUD',
+          tagIcon: '🌐',
+          badge: 'MERU VCC',
+          title: 'Nom de Domaine (.com/.net) + Hébergement',
+          subtitle: 'Enregistrement Namecheap / Hostinger payé en HTG',
+          usdPrice: 18.00,
+          stock: 999,
+          inputType: 'domain_booking',
+          inputLabel: 'Nom de domaine souhaité & Email admin',
+          inputPlaceholder: 'Ex: monentreprise.com — admin@mail.com'
+        },
+        {
+          id: 'exams-bookings',
+          category: 'web_travel',
+          tag: 'VOYAGES & EXAMENS',
+          tagIcon: '🎫',
+          badge: 'MERU VCC',
+          title: 'Paiement Billets, Hôtels & Examens (TOEFL/GRE)',
+          subtitle: 'Règlement en USD sur Booking, Airbnb, ETS.org',
+          usdPrice: 50.00,
+          stock: 999,
+          inputType: 'domain_booking',
+          inputLabel: 'Lien de paiement ou référence dossier + Email',
+          inputPlaceholder: 'Ex: Inscription TOEFL #84920 — nom@mail.com'
+        }
+      ],
+
+      // Commandes initiales réalistes (pour démontrer l'onglet Ordres et la Régie Admin)
+      orders: [
+        {
+          id: 'ALV-8942',
+          date: '16 Nov 2026 • 22:45',
+          customerName: 'Jean-Baptiste Marc',
+          customerPhone: '+509 3741-9022',
+          productId: 'starlink-res',
+          productTitle: 'Starlink Résidentiel ($60)',
+          category: 'telecom',
+          targetInput: 'ACC-4829104-11',
+          usdAmount: 68.00,
+          htgAmount: 9641,
+          gateway: 'MonCash',
+          txRef: 'MC-99283741',
+          status: 'pending', // 'pending' (Orange) | 'processing' (Bleu) | 'delivered' (Vert) | 'cancelled' (Rouge)
+          deliveryPayload: '',
+          logs: [
+            '22:45:10 — Commande créée par le client (9,641 HTG)',
+            '22:45:12 — Paiement MonCash reçu (Réf: MC-99283741). En attente validation Admin.'
+          ]
+        },
+        {
+          id: 'ALV-8939',
+          date: '16 Nov 2026 • 21:18',
+          customerName: 'Claudine Pierre',
+          customerPhone: '+509 4412-8830',
+          productId: 'ff-520',
+          productTitle: '520 + 52 Diamants',
+          category: 'gaming',
+          targetInput: 'UID: 194827364',
+          usdAmount: 6.20,
+          htgAmount: 880,
+          gateway: 'NatCash',
+          txRef: 'NC-77361209',
+          status: 'delivered',
+          deliveryPayload: 'RELOADLY-TXN-994812 • 572 Diamants crédités sur UID 194827364',
+          logs: [
+            '21:18:02 — Paiement NatCash confirmé (880 HTG)',
+            '21:18:05 — API Reloadly exécutée avec succès. Livré automatiquement.'
+          ]
+        },
+        {
+          id: 'ALV-8935',
+          date: '16 Nov 2026 • 19:50',
+          customerName: 'Samuel Desrosiers',
+          customerPhone: '+509 3190-5514',
+          productId: 'iptv-pro',
+          productTitle: 'IPTV Pro 4K — Ligue des Champions & Liga',
+          category: 'streaming',
+          targetInput: '+509 3190-5514 (1 Mois)',
+          usdAmount: 12.00,
+          htgAmount: 1701,
+          gateway: 'MonCash',
+          txRef: 'MC-88120394',
+          status: 'delivered',
+          deliveryPayload: 'Server: http://vip.alevini-tv.net:8080 | User: sam8935 | Pass: 948210',
+          logs: [
+            '19:50:11 — Paiement MonCash validé',
+            '19:50:14 — Identifiants Xtream attribués depuis stock CSV.'
+          ]
+        }
+      ],
+
+      // Notifications récentes
+      notifications: [
+        { id: 1, title: 'Taux API synchronisé', desc: '1 USD = 141.78 HTG actif sur tout le Store.', time: 'Il y a 5 min', unread: true },
+        { id: 2, title: 'Carte Meru VCC opérationnelle', desc: 'Solde disponible pour Starlink & abonnements IA.', time: 'Il y a 22 min', unread: true },
+        { id: 3, title: 'Nouveau catalogue disponible', desc: 'IPTV Pro, eSIM Voyage & ChatGPT Plus ajoutés.', time: 'Aujourd’hui', unread: false }
+      ],
+
+      // État UI temporaire
+      adminTab: 'dashboard',
+      adminOrderFilter: 'all',
+      quickDepositGateway: 'moncash',
+      security2FA: true,
+      securityPinSet: true
+    };
+
+    // =========================================================================
+    // 2. UTILITAIRES DE FORMATAGE & CALCUL
+    // =========================================================================
+    function formatHTG(usd) {
+      return Math.round(usd * state.exchangeRate).toLocaleString('en-US');
+    }
+
+    function formatUSD(usd) {
+      return Number(usd).toFixed(2);
+    }
+
+    function getGatewayInfo(gw) {
+      const map = {
+        moncash: { name: 'MonCash', currency: 'HTG', feePercent: 2.0, balance: state.wallets.moncash },
+        natcash: { name: 'NatCash', currency: 'HTG', feePercent: 2.0, balance: state.wallets.natcash },
+        binance: { name: 'Binance Pay', currency: 'USD', feePercent: 1.0, balance: state.wallets.binance },
+        crypto: { name: 'Crypto (NOWPayments)', currency: 'USD', feePercent: 1.5, balance: state.wallets.crypto }
+      };
+      return map[gw];
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const styles = {
+        success: 'bg-[#132a1c] border-[#22c55e] text-[#f0fdf4]',
+        warning: 'bg-[#291d0a] border-[#eab308] text-[#fef08a]',
+        error: 'bg-[#2a1114] border-[#ef4444] text-[#fecaca]',
+        info: 'bg-[#0f2336] border-[#38bdf8] text-[#e0f2fe]'
+      };
+      const icons = { success: '✅', warning: '⚠️', error: '❌', info: '⚡' };
+      toast.className = `pointer-events-auto px-4 py-3 rounded-2xl border shadow-xl text-xs font-medium flex items-center gap-2.5 transition-all duration-300 transform translate-y-0 ${styles[type] || styles.info}`;
+      toast.innerHTML = `<span class="text-sm">${icons[type]}</span><span class="flex-1">${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3400);
+    }
+
+    function copyText(text) {
+      const temp = document.createElement('textarea');
+      temp.value = text;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+      showToast('Copié dans le presse-papiers !', 'success');
+    }
+
+    // =========================================================================
+    // 3. RENDU DU STORE (FIDÈLE AUX CAPTURES + NOUVELLES CATÉGORIES)
+    // =========================================================================
+    function renderStoreView() {
+      const currentProduct = state.products.find(p => p.id === state.selectedProductId) || state.products[0];
+      const filteredProducts = state.products.filter(p => p.category === state.activeStoreCategory);
+
+      // Calculs passerelle de paiement
+      const gw = getGatewayInfo(state.selectedGateway);
+      const itemCostHTG = Math.round(currentProduct.usdPrice * state.exchangeRate);
+      const itemCostUSD = currentProduct.usdPrice;
+      const baseCost = gw.currency === 'HTG' ? itemCostHTG : itemCostUSD;
+      const feeAmount = gw.currency === 'HTG'
+        ? Math.ceil(baseCost * (gw.feePercent / 100))
+        : Number((baseCost * (gw.feePercent / 100)).toFixed(2));
+      const totalDebit = gw.currency === 'HTG'
+        ? baseCost + feeAmount
+        : Number((baseCost + feeAmount).toFixed(2));
+      const hasEnoughBalance = gw.balance >= totalDebit;
+
+      return `
+        <!-- En-tête Alevini Digital Hub (Captures 1 & 4) -->
+        <div class="px-4 pt-4 pb-2 flex items-start justify-between gap-2">
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="text-[21px] font-bold tracking-tight text-[#f0fdf4]">Alevini Digital Hub</h1>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#132a1c] border border-[#22c55e]/30 text-[#22c55e] text-[10px] font-bold tracking-wider">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#22c55e] live-dot"></span>
+                LIVE API
+              </span>
+            </div>
+            <p class="text-xs font-mono text-[#eab308] mt-1">
+              1 USD = ${state.exchangeRate.toFixed(2)} HTG <span class="text-[#94a3b8] font-sans">• Services digitaux vérifiés</span>
+            </p>
+          </div>
+
+          <!-- Bouton doré Régie Admin -->
+          <button onclick="openAdminModal()" class="shrink-0 px-3 py-2 rounded-full bg-[#241c0b] border border-[#eab308]/60 text-[#eab308] text-xs font-semibold flex items-center gap-1.5 hover:bg-[#33270f] active:scale-95 transition shadow-md">
+            <span>🛡️</span>
+            <span>Régie Admin</span>
+          </button>
+        </div>
+
+        <!-- Barre d'onglets horizontale défilable (Regroupée par thèmes cohérents) -->
+        <div class="mt-2 border-b border-[#1d3525] flex items-center overflow-x-auto no-scrollbar px-2">
+          ${state.categories.map(cat => {
+            const isActive = state.activeStoreCategory === cat.id;
+            return `
+              <button
+                onclick="selectStoreCategory('${cat.id}')"
+                class="shrink-0 px-3.5 py-3 text-[13px] font-semibold flex items-center gap-1.5 border-b-2 transition whitespace-nowrap ${
+                  isActive
+                    ? 'border-[#22c55e] text-[#22c55e]'
+                    : 'border-transparent text-[#94a3b8] hover:text-[#f0fdf4]'
+                }">
+                <span>${cat.icon}</span>
+                <span>${cat.label}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Si onglet 'Mes Commandes' sélectionné dans la barre du Store -->
+        ${state.activeStoreCategory === 'my_orders' ? renderInlineOrdersSection() : `
+          <!-- Liste des cartes produits de la catégorie active -->
+          <div class="p-4 space-y-3">
+            ${filteredProducts.map(prod => {
+              const isSelected = prod.id === currentProduct.id;
+              const htgVal = formatHTG(prod.usdPrice);
+              return `
+                <div
+                  onclick="selectProduct('${prod.id}')"
+                  class="cursor-pointer rounded-2xl p-4 transition-all duration-150 border ${
+                    isSelected
+                      ? 'bg-[#132a1c] border-[#22c55e] ring-1 ring-[#22c55e]/50 shadow-lg shadow-[#22c55e]/5'
+                      : 'bg-[#111f16] border-[#1d3525] hover:border-[#2d4f38]'
+                  }">
+                  <!-- Ligne supérieure : Badge catégorie à gauche + Badge statut/API à droite -->
+                  <div class="flex items-center justify-between gap-2 mb-2.5">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1a2918] text-[#eab308] text-[10px] font-bold tracking-wider uppercase">
+                      <span>${prod.tagIcon}</span>
+                      <span>${prod.tag}</span>
+                    </span>
+
+                    ${isSelected
+                      ? `<span class="px-3 py-1 rounded-full bg-[#22c55e] text-[#052e16] text-[10px] font-extrabold tracking-wider uppercase">SÉLECTIONNÉ</span>`
+                      : `<span class="px-2.5 py-1 rounded-full bg-[#102a43] text-[#38bdf8] text-[10px] font-bold tracking-wider uppercase">${prod.badge}</span>`
+                    }
+                  </div>
+
+                  <!-- Titre & sous-titre -->
+                  <h3 class="text-[17px] font-semibold text-[#f0fdf4] leading-snug">${prod.title}</h3>
+                  <p class="text-xs text-[#94a3b8] mt-0.5">${prod.subtitle}</p>
+
+                  <!-- Prix HTG en vert vif à gauche & équivalent USD en doré à droite -->
+                  <div class="mt-3.5 pt-1 flex items-baseline justify-between">
+                    <div class="font-mono text-lg font-bold text-[#22c55e] tracking-tight">
+                      ${htgVal} HTG
+                    </div>
+                    <div class="font-mono text-sm font-semibold text-[#eab308]">
+                      ≈ $${formatUSD(prod.usdPrice)} USD
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+
+            <!-- ==================== TUNNEL DE COMMANDE & PASSERELLE (CAPTURE 2) ==================== -->
+            <div id="checkout-panel" class="mt-5 rounded-3xl bg-[#111f16] border border-[#1d3525] p-4 space-y-4 shadow-xl">
+              <!-- En-tête Article Sélectionné -->
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <div class="text-xs text-[#94a3b8]">Article sélectionné</div>
+                  <div class="text-base font-bold text-[#f0fdf4] mt-0.5">${currentProduct.title}</div>
+                </div>
+                <div class="text-right shrink-0">
+                  <div class="font-mono text-lg font-bold text-[#22c55e]">${itemCostHTG.toLocaleString('en-US')} HTG</div>
+                  <div class="font-mono text-xs font-semibold text-[#eab308]">$${formatUSD(itemCostUSD)} USD</div>
+                </div>
+              </div>
+
+              <!-- Champs dynamiques adaptés au service sélectionné -->
+              <div class="space-y-3">
+                ${currentProduct.selectOptions ? `
+                  <div>
+                    <label class="block text-[11px] font-medium text-[#94a3b8] mb-1.5">${currentProduct.selectLabel}</label>
+                    <select id="dynamic-option-select" class="w-full bg-[#0b140e] border border-[#1d3525] focus:border-[#22c55e] rounded-xl px-3.5 py-3 text-sm text-[#f0fdf4] outline-none">
+                      ${currentProduct.selectOptions.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                    </select>
+                  </div>
+                ` : ''}
+
+                <div>
+                  <label class="block text-[11px] font-medium text-[#94a3b8] mb-1.5">${currentProduct.inputLabel}</label>
+                  <input
+                    id="dynamic-target-input"
+                    type="text"
+                    placeholder="${currentProduct.inputPlaceholder}"
+                    class="w-full bg-[#0b140e] border border-[#1d3525] focus:border-[#22c55e] rounded-xl px-4 py-3.5 text-sm text-[#f0fdf4] placeholder-[#64748b] outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <!-- Passerelle de règlement sécurisée (Grille 2x2 identique à Capture 2) -->
+              <div>
+                <div class="text-sm font-semibold text-[#f0fdf4] mb-2.5">Passerelle de règlement sécurisée</div>
+                <div class="grid grid-cols-2 gap-2.5">
+                  ${renderGatewayCard('moncash', 'MonCash', `${state.wallets.moncash.toLocaleString('en-US')} HTG • 2%`)}
+                  ${renderGatewayCard('natcash', 'NatCash', `${state.wallets.natcash.toLocaleString('en-US')} HTG • 2%`)}
+                  ${renderGatewayCard('binance', 'Binance Pay', `${state.wallets.binance.toFixed(2)} USD • 1%`)}
+                  ${renderGatewayCard('crypto', 'Crypto (NOWPayme...', `${state.wallets.crypto.toFixed(2)} USD • 1.50%`)}
+                </div>
+              </div>
+
+              <!-- Encadré récapitulatif Solde / Frais / Alerte Solde Insuffisant (Capture 2) -->
+              ${!hasEnoughBalance ? `
+                <div class="rounded-2xl bg-[#261214] border border-[#7f1d1d] p-4 space-y-3">
+                  <div class="flex items-center justify-between text-xs font-mono">
+                    <span class="text-[#cbd5e1]">Solde ${gw.name} :</span>
+                    <span class="font-bold text-[#f87171]">
+                      ${gw.currency === 'HTG' ? `${gw.balance.toLocaleString('en-US')} HTG` : `$${gw.balance.toFixed(2)} USD`}
+                    </span>
+                  </div>
+                  <div class="text-[11px] font-mono text-[#94a3b8]">
+                    Frais passerelle : ${gw.feePercent}% • Coût article : ${gw.currency === 'HTG' ? `${itemCostHTG.toLocaleString('en-US')} HTG` : `$${itemCostUSD.toFixed(2)} USD`}
+                  </div>
+                  <div class="flex items-start gap-2.5 text-xs text-[#fca5a5] leading-relaxed">
+                    <span class="text-[#ef4444] text-base leading-none mt-0.5">▲</span>
+                    <span>Solde ${gw.name} insuffisant. Rechargez ce compte avant de commander.</span>
+                  </div>
+                  <button
+                    onclick="openQuickDeposit('${state.selectedGateway}', ${totalDebit})"
+                    class="w-full py-3.5 rounded-2xl bg-[#22c55e] hover:bg-[#16a34a] text-[#052e16] font-bold text-sm transition active:scale-[0.98] shadow-lg shadow-[#22c55e]/20">
+                    Recharger ${gw.name}
+                  </button>
+                </div>
+              ` : `
+                <div class="rounded-2xl bg-[#0e2116] border border-[#22c55e]/40 p-4 space-y-2">
+                  <div class="flex items-center justify-between text-xs font-mono">
+                    <span class="text-[#94a3b8]">Solde ${gw.name} disponible :</span>
+                    <span class="font-bold text-[#22c55e]">
+                      ${gw.currency === 'HTG' ? `${gw.balance.toLocaleString('en-US')} HTG` : `$${gw.balance.toFixed(2)} USD`}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between text-xs font-mono">
+                    <span class="text-[#94a3b8]">Frais (${gw.feePercent}%) :</span>
+                    <span class="text-[#eab308]">+${gw.currency === 'HTG' ? `${feeAmount} HTG` : `$${feeAmount.toFixed(2)} USD`}</span>
+                  </div>
+                  <div class="pt-2 border-t border-[#1d3525] flex items-center justify-between text-sm font-mono font-bold">
+                    <span class="text-[#f0fdf4]">Total à débiter :</span>
+                    <span class="text-[#22c55e]">${gw.currency === 'HTG' ? `${totalDebit.toLocaleString('en-US')} HTG` : `$${totalDebit.toFixed(2)} USD`}</span>
+                  </div>
+                </div>
+              `}
+
+              <!-- Mention sécurité débit automatique -->
+              <div class="flex items-start gap-2 text-[11px] text-[#94a3b8] px-1">
+                <span class="text-[#22c55e] mt-0.5">🔒</span>
+                <span>Débit automatique du portefeuille ${gw.name} • Livraison dans Mes Commandes (${isProductAuto(currentProduct) ? 'Mode API Instantané' : 'Validation Admin'}).</span>
+              </div>
+
+              <!-- Bouton final d'action (Grisé si insuffisant comme Capture 2, Vert actif si suffisant) -->
+              <button
+                onclick="submitOrder()"
+                ${!hasEnoughBalance ? 'disabled' : ''}
+                class="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition ${
+                  hasEnoughBalance
+                    ? 'bg-[#22c55e] hover:bg-[#16a34a] text-[#052e16] cursor-pointer shadow-lg shadow-[#22c55e]/20 active:scale-[0.98]'
+                    : 'bg-[#14231a] text-[#64748b] cursor-not-allowed border border-[#1d3525]'
+                }">
+                <span>🛍️</span>
+                <span>
+                  ${hasEnoughBalance
+                    ? `Commander et Payer (${gw.currency === 'HTG' ? totalDebit.toLocaleString('en-US') + ' HTG' : '$' + totalDebit.toFixed(2) + ' USD'})`
+                    : `Solde ${gw.name} insuffisant`
+                  }
+                </span>
+              </button>
+            </div>
+          </div>
+        `}
+      `;
+    }
+
+    function renderGatewayCard(id, title, subtitle) {
+      const isSelected = state.selectedGateway === id;
+      return `
+        <button
+          type="button"
+          onclick="selectGateway('${id}')"
+          class="text-left p-3 rounded-2xl border transition flex items-center gap-2.5 ${
+            isSelected
+              ? 'bg-[#143020] border-[#22c55e]'
+              : 'bg-[#0e1a12] border-[#1d3525] hover:border-[#2d4f38]'
+          }">
+          ${isSelected ? `
+            <span class="w-4 h-4 rounded-full bg-[#22c55e] text-[#052e16] flex items-center justify-center text-[10px] font-black shrink-0">✓</span>
+          ` : ''}
+          <div class="min-w-0">
+            <div class="text-xs font-semibold ${isSelected ? 'text-[#22c55e]' : 'text-[#cbd5e1]'} truncate">${title}</div>
+            <div class="text-[11px] font-mono text-[#94a3b8] truncate mt-0.5">${subtitle}</div>
+          </div>
+        </button>
+      `;
+    }
+
+    function isProductAuto(product) {
+      if (state.fulfillmentMode === 'manual') return false;
+      return state.categoryAutoMode[product.category] !== false;
+    }
+
+    // =========================================================================
+    // 4. RENDU DES COMMANDES CLIENT (ONGLET MES COMMANDES & ORDRES)
+    // =========================================================================
+    function renderInlineOrdersSection() {
+      return `
+        <div class="p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold text-[#f0fdf4]">Historique & Livraisons Instantanées</h2>
+            <span class="text-[11px] text-[#94a3b8]">${state.orders.length} commande(s)</span>
+          </div>
+          ${state.orders.map(order => renderOrderCardClient(order)).join('')}
+        </div>
+      `;
+    }
+
+    function renderOrdersTabView() {
+      return `
+        <div class="p-4 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-lg font-bold text-[#f0fdf4]">Mes Commandes & Reçus</h1>
+              <p class="text-xs text-[#94a3b8]">Codes PIN, accès Streaming & reçus Starlink Meru VCC</p>
+            </div>
+            <button onclick="switchBottomTab('store')" class="px-3 py-1.5 rounded-xl bg-[#132a1c] border border-[#22c55e]/40 text-[#22c55e] text-xs font-semibold">
+              + Nouvel Achat
+            </button>
+          </div>
+          <div class="space-y-3">
+            ${state.orders.map(order => renderOrderCardClient(order)).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderOrderCardClient(order) {
+      const statusMap = {
+        pending: { label: 'En attente validation', cls: 'bg-[#eab308]/15 text-[#eab308] border-[#eab308]/40' },
+        processing: { label: 'API en cours...', cls: 'bg-[#38bdf8]/15 text-[#38bdf8] border-[#38bdf8]/40' },
+        delivered: { label: 'Livré', cls: 'bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/40' },
+        cancelled: { label: 'Annulé / Remboursé', cls: 'bg-[#ef4444]/15 text-[#f87171] border-[#ef4444]/40' }
+      };
+      const st = statusMap[order.status] || statusMap.pending;
+
+      return `
+        <div class="rounded-2xl bg-[#111f16] border border-[#1d3525] p-4 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-xs font-bold text-[#94a3b8]">#${order.id} • ${order.date}</span>
+            <span class="px-2.5 py-0.5 rounded-full border text-[10px] font-bold ${st.cls}">${st.label}</span>
+          </div>
+          <div>
+            <div class="text-sm font-bold text-[#f0fdf4]">${order.productTitle}</div>
+            <div class="text-xs text-[#94a3b8] mt-0.5">Cible : <span class="text-[#cbd5e1] font-mono">${order.targetInput}</span></div>
+          </div>
+          <div class="flex items-center justify-between text-xs pt-1 border-t border-[#1d3525]/70">
+            <span class="text-[#94a3b8]">Payé via <strong class="text-[#f0fdf4]">${order.gateway}</strong></span>
+            <span class="font-mono font-bold text-[#22c55e]">${order.htgAmount.toLocaleString('en-US')} HTG <span class="text-[#eab308] font-normal">($${order.usdAmount.toFixed(2)})</span></span>
+          </div>
+
+          ${order.status === 'delivered' && order.deliveryPayload ? `
+            <div class="mt-2 p-3 rounded-xl bg-[#0b140e] border border-[#22c55e]/40 flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <div class="text-[10px] uppercase tracking-wider text-[#22c55e] font-bold">Code / Identifiant Livré :</div>
+                <div class="font-mono text-xs text-[#f0fdf4] break-all mt-0.5">${order.deliveryPayload}</div>
+              </div>
+              <button onclick="copyText('${order.deliveryPayload.replace(/'/g, "\\'")}')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-[#132a1c] text-[#22c55e] text-xs font-semibold hover:bg-[#1b3b28]">
+                Copier
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 5. RENDU DES AUTRES ONGLETS BOTTOM BAR (DÉPÔT, ÉCHANGER, SÉCURITÉ)
+    // =========================================================================
+    function renderDepositView() {
+      return `
+        <div class="p-4 space-y-4">
+          <div>
+            <h1 class="text-lg font-bold text-[#f0fdf4]">Dépôt & Recharge Portefeuille</h1>
+            <p class="text-xs text-[#94a3b8]">Alimentez vos soldes HTG ou USD pour payer instantanément dans le Store.</p>
+          </div>
+
+          <!-- Soldes actuels -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="p-3.5 rounded-2xl bg-[#111f16] border border-[#1d3525]">
+              <div class="text-[11px] text-[#94a3b8]">Solde MonCash</div>
+              <div class="font-mono text-base font-bold text-[#22c55e] mt-1">${state.wallets.moncash.toLocaleString('en-US')} HTG</div>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-[#111f16] border border-[#1d3525]">
+              <div class="text-[11px] text-[#94a3b8]">Solde NatCash</div>
+              <div class="font-mono text-base font-bold text-[#22c55e] mt-1">${state.wallets.natcash.toLocaleString('en-US')} HTG</div>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-[#111f16] border border-[#1d3525]">
+              <div class="text-[11px] text-[#94a3b8]">Binance Pay</div>
+              <div class="font-mono text-base font-bold text-[#eab308] mt-1">$${state.wallets.binance.toFixed(2)} USD</div>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-[#111f16] border border-[#1d3525]">
+              <div class="text-[11px] text-[#94a3b8]">Crypto USDT</div>
+              <div class="font-mono text-base font-bold text-[#eab308] mt-1">$${state.wallets.crypto.toFixed(2)} USD</div>
+            </div>
+          </div>
+
+          <!-- Formulaire de dépôt -->
+          <div class="rounded-3xl bg-[#111f16] border border-[#1d3525] p-4 space-y-3.5">
+            <div class="text-sm font-semibold text-[#f0fdf4]">Effectuer un Dépôt Rapide</div>
+            <div>
+              <label class="block text-xs text-[#94a3b8] mb-1">Choisir la méthode</label>
+              <select id="dep-gw" class="w-full bg-[#0b140e] border border-[#1d3525] rounded-xl px-3.5 py-3 text-sm text-[#f0fdf4] outline-none">
+                <option value="moncash">MonCash (HTG)</option>
+                <option value="natcash">NatCash (HTG)</option>
+                <option value="binance">Binance Pay (USD)</option>
+                <option value="crypto">Crypto USDT TRC20 (USD)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-[#94a3b8] mb-1">Montant du dépôt</label>
+              <input id="dep-amount" type="number" value="15000" class="w-full bg-[#0b140e] border border-[#1d3525] rounded-xl px-3.5 py-3 text-sm font-mono text-[#f0fdf4] outline-none" />
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <button type="button" onclick="document.getElementById('dep-amount').value=2500" class="py-2 rounded-xl bg-[#0b140e] border border-[#1d3525] text-xs font-mono text-[#22c55e]">2,500 HTG</button>
+              <button type="button" onclick="document.getElementById('dep-amount').value=10000" class="py-2 rounded-xl bg-[#0b140e] border border-[#1d3525] text-xs font-mono text-[#22c55e]">10,000 HTG</button>
+              <button type="button" onclick="document.getElementById('dep-amount').value=25000" class="py-2 rounded-xl bg-[#0b140e] border border-[#1d3525] text-xs font-mono text-[#22c55e]">25,000 HTG</button>
+            </div>
+            <button onclick="processFullDeposit()" class="w-full py-3.5 rounded-2xl bg-[#22c55e] hover:bg-[#16a34a] text-[#052e16] font-bold text-sm transition">
+              Créditer mon Portefeuille
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderExchangeView() {
+      return `
+        <div class="p-4 space-y-4">
+          <div>
+            <h1 class="text-lg font-bold text-[#f0fdf4]">Convertisseur HTG ↔ USD</h1>
+            <p class="text-xs text-[#eab308] font-mono">Taux Live Régie : 1 USD = ${state.exchangeRate.toFixed(2)} HTG</p>
+          </div>
+
+          <div class="rounded-3xl bg-[#111f16] border border-[#1d3525] p-4 space-y-4">
+            <div>
+              <label class="block text-xs text-[#94a3b8] mb-1">Montant en Dollars (USD)</label>
+              <input id="conv-usd" type="number" value="60" oninput="syncConverter('usd')" class="w-full bg-[#0b140e] border border-[#1d3525] rounded-xl px-4 py-3 font-mono text-base text-[#eab308] outline-none" />
+            </div>
+            <div class="flex justify-center">
+              <span class="w-9 h-9 rounded-full bg-[#132a1c] border border-[#22c55e]/40 flex items-center justify-center text-[#22c55e]">⇅</span>
+            </div>
+            <div>
+              <label class="block text-xs text-[#94a3b8] mb-1">Équivalent en Gourdes (HTG)</label>
+              <input id="conv-htg" type="number" value="${Math.round(60 * state.exchangeRate)}" oninput="syncConverter('htg')" class="w-full bg-[#0b140e] border border-[#1d3525] rounded-xl px-4 py-3 font-mono text-base text-[#22c55e] outline-none" />
+            </div>
+            <button onclick="convertWalletFunds()" class="w-full py-3.5 rounded-2xl bg-[#22c55e] text-[#052e16] font-bold text-sm">
+              Convertir MonCash (HTG) → Binance (USD)
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSecurityView() {
+      return `
+        <div class="p-4 space-y-4">
+          <div>
+            <h1 class="text-lg font-bold text-[#f0fdf4]">Sécurité & Protection Compte</h1>
+            <p class="text-xs text-[#94a3b8]">Sécurisation des transactions MonCash, NatCash & Meru VCC</p>
+          </div>
+
+          <div class="rounded-2xl bg-[#111f16] border border-[#1d3525] p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-sm font-semibold text-[#f0fdf4]">Statut KYC Identité</div>
+                <div class="text-xs text-[#22c55e]">Vérifié • Limite illimitée</div>
+              </div>
+              <span class="px-3 py-1 rounded-full bg-[#132a1c] text-[#22c55e] text-xs font-bold">ACTIF</span>
+            </div>
+            <div class="pt-3 border-t border-[#1d3525] flex items-center justify-between">
+              <div>
+                <div class="text-sm font-semibold text-[#f0fdf4]">Double Authentification (2FA)</div>
+                <div class="text-xs text-[#94a3b8]">Code OTP WhatsApp / Authenticator</div>
+              </div>
+              <button onclick="state.security2FA=!state.security2FA; renderApp(); showToast('Paramètre 2FA mis à jour','info')" class="px-3 py-1 rounded-full text-xs font-bold ${state.security2FA ? 'bg-[#22c55e] text-[#052e16]' : 'bg-[#1d3525] text-[#94a3b8]'}">
+                ${state.security2FA ? 'ACTIVÉ' : 'DÉSACTIVÉ'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 6. RENDU DU PANNEAU RÉGIE ADMIN (FINANCES, BASCULE AUTO/MANUEL, ORDRES)
+    // =========================================================================
+    function renderAdminContent() {
+      const container = document.getElementById('admin-content');
+      const pendingCount = state.orders.filter(o => o.status === 'pending').length;
+      document.getElementById('admin-pending-badge').textContent = pendingCount;
+
+      if (state.adminTab === 'dashboard') {
+        const totalSalesHTG = state.orders.filter(o => o.status !== 'cancelled').reduce((acc, o) => acc + o.htgAmount, 0);
+        const totalSalesUSD = state.orders.filter(o => o.status !== 'cancelled').reduce((acc, o) => acc + o.usdAmount, 0);
+
+        container.innerHTML = `
+          <!-- Carte Taux de Change en temps réel -->
+          <div class="rounded-2xl bg-[#111f16] border border-[#eab308]/40 p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-[#eab308]">Taux de Change en Direct</span>
+              <span class="text-[11px] text-[#22c55e]">● Sync Store immédiate</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-mono text-[#94a3b8]">1 USD =</span>
+              <input id="admin-rate-input" type="number" step="0.01" value="${state.exchangeRate}" class="flex-1 bg-[#0b140e] border border-[#1d3525] focus:border-[#eab308] rounded-xl px-3 py-2 font-mono text-base font-bold text-[#eab308] outline-none" />
+              <span class="text-sm font-mono text-[#94a3b8]">HTG</span>
+              <button onclick="updateExchangeRate()" class="px-3.5 py-2 rounded-xl bg-[#eab308] text-[#0b140e] font-bold text-xs">
+                Appliquer
+              </button>
+            </div>
+          </div>
+
+          <!-- Soldes Carte Virtuelle Meru VCC & Fournisseurs API -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="p-3.5 rounded-2xl bg-[#111f16] border border-[#1d3525]">
+              <div class="text-[11px] text-[#38bdf8] font-semibold">💳 Carte Meru VCC</div>
+              <div class="font-mono text-lg font-bold text-[#f0fdf4] mt-1">$${state.adminBalances.meruVccUsd.toFixed(2)}</div>
+              <div class="text-[10px] text-[#94a3b8] mt-0.5">Starlink, IA, Streaming</div>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-[#111f16] border border-[#1d3525]">
+              <div class="text-[11px] text-[#22c55e] font-semibold">⚡ API Reloadly / SEAGM</div>
+              <div class="font-mono text-lg font-bold text-[#f0fdf4] mt-1">$${(state.adminBalances.reloadlyUsd + state.adminBalances.seagmUsd).toFixed(2)}</div>
+              <div class="text-[10px] text-[#94a3b8] mt-0.5">Gaming, Top-up, Pins</div>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-[#111f16] border border-[#1d3525]">
+              <div class="text-[11px] text-[#94a3b8]">Volume Ventes (HTG)</div>
+              <div class="font-mono text-base font-bold text-[#22c55e] mt-1">${totalSalesHTG.toLocaleString('en-US')} HTG</div>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-[#111f16] border border-[#1d3525]">
+              <div class="text-[11px] text-[#94a3b8]">Volume Ventes (USD)</div>
+              <div class="font-mono text-base font-bold text-[#eab308] mt-1">$${totalSalesUSD.toFixed(2)} USD</div>
+            </div>
+          </div>
+
+          <!-- Interrupteur Global : Mode Automatique vs Mode Manuel -->
+          <div class="rounded-2xl bg-[#111f16] border border-[#1d3525] p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-[#f0fdf4]">Mode de Traitement des Ordres</h3>
+                <p class="text-[11px] text-[#94a3b8]">Basculez entre exécution API instantanée ou validation manuelle</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="setFulfillmentMode('auto')" class="p-3 rounded-xl border text-left transition ${
+                state.fulfillmentMode === 'auto'
+                  ? 'bg-[#132a1c] border-[#22c55e] text-[#f0fdf4]'
+                  : 'bg-[#0b140e] border-[#1d3525] text-[#94a3b8]'
+              }">
+                <div class="text-xs font-bold ${state.fulfillmentMode === 'auto' ? 'text-[#22c55e]' : ''}">⚡ Mode Automatique</div>
+                <div class="text-[10px] mt-1 leading-snug">Full API (Reloadly / Meru / Stock CSV) dès paiement.</div>
+              </button>
+
+              <button onclick="setFulfillmentMode('manual')" class="p-3 rounded-xl border text-left transition ${
+                state.fulfillmentMode === 'manual'
+                  ? 'bg-[#291d0a] border-[#eab308] text-[#f0fdf4]'
+                  : 'bg-[#0b140e] border-[#1d3525] text-[#94a3b8]'
+              }">
+                <div class="text-xs font-bold ${state.fulfillmentMode === 'manual' ? 'text-[#eab308]' : ''}">🛡️ Mode Manuel</div>
+                <div class="text-[10px] mt-1 leading-snug">Mise en file "À valider" pour contrôle reçu MonCash/NatCash.</div>
+              </button>
+            </div>
+          </div>
+        `;
+      } else if (state.adminTab === 'orders') {
+        const filteredOrders = state.adminOrderFilter === 'all'
+          ? state.orders
+          : state.orders.filter(o => o.status === state.adminOrderFilter);
+
+        container.innerHTML = `
+          <!-- Filtres par statut -->
+          <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+            ${[
+              { id: 'all', label: 'Toutes' },
+              { id: 'pending', label: '🟠 À valider' },
+              { id: 'processing', label: '🔵 En cours' },
+              { id: 'delivered', label: '🟢 Livré' },
+              { id: 'cancelled', label: '🔴 Annulé' }
+            ].map(f => `
+              <button onclick="state.adminOrderFilter='${f.id}'; renderAdminContent();" class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border ${
+                state.adminOrderFilter === f.id
+                  ? 'bg-[#22c55e] text-[#052e16] border-[#22c55e]'
+                  : 'bg-[#111f16] text-[#94a3b8] border-[#1d3525]'
+              }">${f.label}</button>
+            `).join('')}
+          </div>
+
+          <!-- Liste des fiches de commande Admin -->
+          <div class="space-y-3">
+            ${filteredOrders.length === 0 ? `<div class="text-center py-8 text-xs text-[#94a3b8]">Aucune commande dans ce filtre.</div>` : ''}
+            ${filteredOrders.map(order => `
+              <div class="rounded-2xl bg-[#111f16] border border-[#1d3525] p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-xs font-bold text-[#eab308]">#${order.id}</span>
+                  <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+                    order.status === 'pending' ? 'bg-[#f59e0b]/20 text-[#f59e0b]' :
+                    order.status === 'delivered' ? 'bg-[#22c55e]/20 text-[#22c55e]' :
+                    order.status === 'processing' ? 'bg-[#38bdf8]/20 text-[#38bdf8]' :
+                    'bg-[#ef4444]/20 text-[#f87171]'
+                  }">${order.status.toUpperCase()}</span>
+                </div>
+
+                <!-- Détails Client & Produit -->
+                <div class="text-xs space-y-1 bg-[#0b140e] p-3 rounded-xl border border-[#1d3525]">
+                  <div class="flex justify-between"><span class="text-[#94a3b8]">Client :</span><span class="font-semibold text-[#f0fdf4]">${order.customerName} (${order.customerPhone})</span></div>
+                  <div class="flex justify-between"><span class="text-[#94a3b8]">Produit :</span><span class="font-semibold text-[#22c55e]">${order.productTitle}</span></div>
+                  <div class="flex justify-between"><span class="text-[#94a3b8]">Cible / ID :</span><span class="font-mono text-[#f0fdf4]">${order.targetInput}</span></div>
+                  <div class="flex justify-between"><span class="text-[#94a3b8]">Montant :</span><span class="font-mono text-[#eab308]">${order.htgAmount.toLocaleString('en-US')} HTG ($${order.usdAmount.toFixed(2)}) • ${order.gateway}</span></div>
+                  <div class="flex justify-between"><span class="text-[#94a3b8]">Réf Tx :</span><span class="font-mono text-[#38bdf8]">${order.txRef}</span></div>
+                </div>
+
+                <!-- Journal d'activité (Logs) -->
+                <div class="space-y-1">
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-[#94a3b8]">Journal d'activité (Logs)</div>
+                  <div class="bg-[#080f0a] rounded-xl p-2.5 font-mono text-[10px] text-[#94a3b8] space-y-1">
+                    ${order.logs.map(l => `<div>• ${l}</div>`).join('')}
+                  </div>
+                </div>
+
+                <!-- Actions Rapides Administrateur -->
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                  <button onclick="adminApproveOrder('${order.id}')" class="py-2 px-2 rounded-xl bg-[#22c55e]/15 border border-[#22c55e]/50 text-[#22c55e] text-[11px] font-bold hover:bg-[#22c55e]/25">
+                    🟢 Valider & Livrer
+                  </button>
+                  <button onclick="adminRetryApi('${order.id}')" class="py-2 px-2 rounded-xl bg-[#38bdf8]/15 border border-[#38bdf8]/50 text-[#38bdf8] text-[11px] font-bold hover:bg-[#38bdf8]/25">
+                    🔄 Relancer API
+                  </button>
+                  <button onclick="adminCancelRefund('${order.id}')" class="py-2 px-2 rounded-xl bg-[#ef4444]/15 border border-[#ef4444]/50 text-[#f87171] text-[11px] font-bold hover:bg-[#ef4444]/25">
+                    ❌ Rembourser
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else if (state.adminTab === 'catalog') {
+        container.innerHTML = `
+          <div class="rounded-2xl bg-[#111f16] border border-[#1d3525] p-4 space-y-3">
+            <h3 class="text-sm font-bold text-[#f0fdf4]">Ajouter un Nouveau Produit / Service</h3>
+            <div>
+              <label class="block text-[11px] text-[#94a3b8] mb-1">Catégorie du Store</label>
+              <select id="new-prod-cat" class="w-full bg-[#0b140e] border border-[#1d3525] rounded-xl px-3 py-2.5 text-xs text-[#f0fdf4]">
+                ${state.categories.filter(c => c.id !== 'my_orders').map(c => `<option value="${c.id}">${c.icon} ${c.label}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] text-[#94a3b8] mb-1">Nom du produit / service</label>
+              <input id="new-prod-title" type="text" placeholder="Ex: Starlink Business 40 Go ($140)" class="w-full bg-[#0b140e] border border-[#1d3525] rounded-xl px-3 py-2.5 text-xs text-[#f0fdf4]" />
+            </div>
+            <div>
+              <label class="block text-[11px] text-[#94a3b8] mb-1">Sous-titre / Mode de livraison</label>
+              <input id="new-prod-sub" type="text" placeholder="Ex: Paiement prioritaire via Carte Meru VCC" class="w-full bg-[#0b140e] border border-[#1d3525] rounded-xl px-3 py-2.5 text-xs text-[#f0fdf4]" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] text-[#94a3b8] mb-1">Prix de vente (USD)</label>
+                <input id="new-prod-usd" type="number" step="0.1" placeholder="25.00" class="w-full bg-[#0b140e] border border-[#1d3525] rounded-xl px-3 py-2.5 text-xs font-mono text-[#eab308]" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-[#94a3b8] mb-1">Badge Fournisseur</label>
+                <select id="new-prod-badge" class="w-full bg-[#0b140e] border border-[#1d3525] rounded-xl px-3 py-2.5 text-xs text-[#38bdf8]">
+                  <option value="MERU VCC">MERU VCC</option>
+                  <option value="API DIRECT">API DIRECT</option>
+                  <option value="PIN INSTANT">PIN INSTANT</option>
+                  <option value="STOCK AUTO">STOCK AUTO</option>
+                </select>
+              </div>
+            </div>
+            <button onclick="adminAddProduct()" class="w-full py-3 rounded-xl bg-[#22c55e] text-[#052e16] font-bold text-xs">
+              + Publier immédiatement dans le Store
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    // =========================================================================
+    // 7. ACTIONS UTILISATEUR & LOGIQUE MÉTIER
+    // =========================================================================
+    function selectStoreCategory(catId) {
+      state.activeStoreCategory = catId;
+      if (catId !== 'my_orders') {
+        const firstInCat = state.products.find(p => p.category === catId);
+        if (firstInCat) state.selectedProductId = firstInCat.id;
+      }
+      renderApp();
+    }
+
+    function selectProduct(prodId) {
+      state.selectedProductId = prodId;
+      renderApp();
+      // Scroll doux vers le tunnel de paiement si sur petit écran
+      const panel = document.getElementById('checkout-panel');
+      if (panel) {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function selectGateway(gwId) {
+      state.selectedGateway = gwId;
+      renderApp();
+    }
+
+    function switchBottomTab(tabId) {
+      state.activeBottomTab = tabId;
+      updateBottomNavUI();
+      renderApp();
+    }
+
+    function updateBottomNavUI() {
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const isTarget = btn.getAttribute('data-nav') === state.activeBottomTab;
+        const pill = btn.querySelector('.nav-pill');
+        if (isTarget) {
+          btn.classList.remove('text-[#94a3b8]');
+          btn.classList.add('text-[#22c55e]');
+          pill.classList.add('bg-[#163322]');
+        } else {
+          btn.classList.add('text-[#94a3b8]');
+          btn.classList.remove('text-[#22c55e]');
+          pill.classList.remove('bg-[#163322]');
+        }
+      });
+
+      const pendingCount = state.orders.filter(o => o.status === 'pending').length;
+      const badge = document.getElementById('orders-nav-count');
+      if (pendingCount > 0) {
+        badge.textContent = pendingCount;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function generateDeliveryPayload(product, target) {
+      const randCode = Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
+      if (product.category === 'gaming') {
+        return `PIN/TXN: ${randCode}-ALV • Crédité pour ${target}`;
+      } else if (product.category === 'streaming') {
+        return `Accès: vip_${randCode.toLowerCase()}@alevini.ht | Pass: Alv#${Math.floor(1000+Math.random()*9000)}`;
+      } else if (product.category === 'telecom') {
+        return `Reçu Meru VCC #MR-${Math.floor(100000+Math.random()*900000)} • Activé pour ${target}`;
+      } else if (product.category === 'cards') {
+        return `Carte Visa Meru: 4532 8910 ${Math.floor(1000+Math.random()*9000)} ${Math.floor(1000+Math.random()*9000)} | Exp: 11/29 | CVV: ${Math.floor(100+Math.random()*899)}`;
+      } else {
+        return `Licence / Confirmation #${randCode} envoyée à ${target}`;
+      }
+    }
+
+    function submitOrder() {
+      const product = state.products.find(p => p.id === state.selectedProductId);
+      const targetInputEl = document.getElementById('dynamic-target-input');
+      const selectOptionEl = document.getElementById('dynamic-option-select');
+
+      const targetVal = targetInputEl ? targetInputEl.value.trim() : '';
+      if (!targetVal) {
+        showToast(`Veuillez remplir : ${product.inputLabel}`, 'warning');
+        if (targetInputEl) targetInputEl.focus();
+        return;
+      }
+
+      const fullTarget = selectOptionEl ? `${selectOptionEl.value} → ${targetVal}` : targetVal;
+      const gw = getGatewayInfo(state.selectedGateway);
+      const itemCostHTG = Math.round(product.usdPrice * state.exchangeRate);
+      const itemCostUSD = product.usdPrice;
+      const baseCost = gw.currency === 'HTG' ? itemCostHTG : itemCostUSD;
+      const feeAmount = gw.currency === 'HTG'
+        ? Math.ceil(baseCost * (gw.feePercent / 100))
+        : Number((baseCost * (gw.feePercent / 100)).toFixed(2));
+      const totalDebit = gw.currency === 'HTG'
+        ? baseCost + feeAmount
+        : Number((baseCost + feeAmount).toFixed(2));
+
+      if (gw.balance < totalDebit) {
+        showToast(`Solde ${gw.name} insuffisant.`, 'error');
+        return;
+      }
+
+      // Débit du portefeuille client
+      state.wallets[state.selectedGateway] = gw.currency === 'HTG'
+        ? state.wallets[state.selectedGateway] - totalDebit
+        : Number((state.wallets[state.selectedGateway] - totalDebit).toFixed(2));
+
+      const autoExec = isProductAuto(product);
+      const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const newOrderId = 'ALV-' + Math.floor(8950 + Math.random() * 1000);
+
+      const newOrder = {
+        id: newOrderId,
+        date: `Aujourd'hui • ${nowTime.slice(0,5)}`,
+        customerName: 'Client Alevini (Vous)',
+        customerPhone: '+509 3700-1122',
+        productId: product.id,
+        productTitle: product.title,
+        category: product.category,
+        targetInput: fullTarget,
+        usdAmount: itemCostUSD,
+        htgAmount: itemCostHTG,
+        gateway: gw.name,
+        txRef: `${gw.name.slice(0,2).toUpperCase()}-${Math.floor(10000000 + Math.random() * 90000000)}`,
+        status: autoExec ? 'delivered' : 'pending',
+        deliveryPayload: autoExec ? generateDeliveryPayload(product, fullTarget) : '',
+        logs: autoExec
+          ? [
+              `${nowTime} — Débit ${gw.name} confirmé (${totalDebit} ${gw.currency})`,
+              `${nowTime} — Mode Automatique actif : API fournisseur exécutée et produit livré.`
+            ]
+          : [
+              `${nowTime} — Débit ${gw.name} confirmé (${totalDebit} ${gw.currency})`,
+              `${nowTime} — Mode Manuel actif : Commande placée en file d'attente Régie Admin.`
+            ]
+      };
+
+      // Déduire solde fournisseur côté Admin si livré auto
+      if (autoExec) {
+        if (product.badge === 'MERU VCC') {
+          state.adminBalances.meruVccUsd = Math.max(0, state.adminBalances.meruVccUsd - itemCostUSD);
+        } else {
+          state.adminBalances.reloadlyUsd = Math.max(0, state.adminBalances.reloadlyUsd - itemCostUSD);
+        }
+      }
+
+      state.orders.unshift(newOrder);
+      updateBottomNavUI();
+
+      if (autoExec) {
+        showToast(`Commande #${newOrderId} livrée instantanément ! Consultez Mes Commandes.`, 'success');
+      } else {
+        showToast(`Commande #${newOrderId} envoyée en validation Régie Admin.`, 'warning');
+      }
+
+      // Basculer automatiquement sur Mes Commandes pour voir le code/reçu livré
+      state.activeStoreCategory = 'my_orders';
+      renderApp();
+    }
+
+    // =========================================================================
+    // 8. ACTIONS DÉPÔT RAPIDE & CONVERSION
+    // =========================================================================
+    function openQuickDeposit(gwId, suggestedAmount) {
+      state.quickDepositGateway = gwId;
+      const gw = getGatewayInfo(gwId);
+      document.getElementById('qd-gateway-name').textContent = gw.name;
+      const defaultVal = gw.currency === 'HTG' ? Math.max(2000, Math.ceil(suggestedAmount / 500) * 500) : Math.max(20, Math.ceil(suggestedAmount));
+      document.getElementById('qd-amount-input').value = defaultVal;
+
+      const presets = gw.currency === 'HTG' ? [2500, 10000, 25000] : [25, 50, 150];
+      document.getElementById('qd-presets').innerHTML = presets.map(amt => `
+        <button type="button" onclick="document.getElementById('qd-amount-input').value=${amt}" class="py-2 rounded-xl bg-[#0b140e] border border-[#1d3525] hover:border-[#22c55e] text-xs font-mono text-[#22c55e]">
+          ${gw.currency === 'HTG' ? amt.toLocaleString('en-US') + ' HTG' : '$' + amt + ' USD'}
+        </button>
+      `).join('');
+
+      document.getElementById('quick-deposit-modal').classList.remove('hidden');
+    }
+
+    function closeQuickDeposit() {
+      document.getElementById('quick-deposit-modal').classList.add('hidden');
+    }
+
+    function confirmQuickDeposit() {
+      const amount = parseFloat(document.getElementById('qd-amount-input').value);
+      if (!amount || amount <= 0) {
+        showToast('Montant invalide.', 'error');
+        return;
+      }
+      const gwId = state.quickDepositGateway;
+      const gw = getGatewayInfo(gwId);
+      state.wallets[gwId] = gw.currency === 'HTG'
+        ? state.wallets[gwId] + Math.round(amount)
+        : Number((state.wallets[gwId] + amount).toFixed(2));
+
+      closeQuickDeposit();
+      showToast(`+${gw.currency === 'HTG' ? Math.round(amount).toLocaleString('en-US') + ' HTG' : '$' + amount.toFixed(2) + ' USD'} crédité sur ${gw.name} !`, 'success');
+      renderApp();
+    }
+
+    function processFullDeposit() {
+      const gwId = document.getElementById('dep-gw').value;
+      const amount = parseFloat(document.getElementById('dep-amount').value);
+      if (!amount || amount <= 0) {
+        showToast('Veuillez saisir un montant valide.', 'error');
+        return;
+      }
+      const gw = getGatewayInfo(gwId);
+      state.wallets[gwId] = gw.currency === 'HTG'
+        ? state.wallets[gwId] + Math.round(amount)
+        : Number((state.wallets[gwId] + amount).toFixed(2));
+      showToast(`Dépôt de ${amount} ${gw.currency} confirmé sur ${gw.name} !`, 'success');
+      renderApp();
+    }
+
+    function syncConverter(source) {
+      const usdEl = document.getElementById('conv-usd');
+      const htgEl = document.getElementById('conv-htg');
+      if (source === 'usd') {
+        htgEl.value = Math.round((parseFloat(usdEl.value) || 0) * state.exchangeRate);
+      } else {
+        usdEl.value = ((parseFloat(htgEl.value) || 0) / state.exchangeRate).toFixed(2);
+      }
+    }
+
+    function convertWalletFunds() {
+      const usdToBuy = parseFloat(document.getElementById('conv-usd').value);
+      const htgNeeded = Math.round(usdToBuy * state.exchangeRate);
+      if (!usdToBuy || usdToBuy <= 0) return;
+      if (state.wallets.moncash < htgNeeded) {
+        showToast(`Solde MonCash insuffisant (${htgNeeded.toLocaleString('en-US')} HTG requis).`, 'error');
+        return;
+      }
+      state.wallets.moncash -= htgNeeded;
+      state.wallets.binance = Number((state.wallets.binance + usdToBuy).toFixed(2));
+      showToast(`${htgNeeded.toLocaleString('en-US')} HTG convertis en $${usdToBuy.toFixed(2)} USD !`, 'success');
+      renderApp();
+    }
+
+    // =========================================================================
+    // 9. ACTIONS RÉGIE ADMIN
+    // =========================================================================
+    function openAdminModal() {
+      document.getElementById('admin-modal').classList.remove('hidden');
+      renderAdminContent();
+    }
+
+    function closeAdminModal() {
+      document.getElementById('admin-modal').classList.add('hidden');
+      renderApp();
+    }
+
+    function switchAdminTab(tab) {
+      state.adminTab = tab;
+      document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        const active = btn.getAttribute('data-admintab') === tab;
+        btn.classList.toggle('border-[#eab308]', active);
+        btn.classList.toggle('text-[#eab308]', active);
+        btn.classList.toggle('border-transparent', !active);
+        btn.classList.toggle('text-[#94a3b8]', !active);
+      });
+      renderAdminContent();
+    }
+
+    function updateExchangeRate() {
+      const newRate = parseFloat(document.getElementById('admin-rate-input').value);
+      if (!newRate || newRate < 50) {
+        showToast('Taux invalide.', 'error');
+        return;
+      }
+      state.exchangeRate = newRate;
+      showToast(`Nouveau taux appliqué : 1 USD = ${newRate.toFixed(2)} HTG`, 'success');
+      renderApp();
+      renderAdminContent();
+    }
+
+    function setFulfillmentMode(mode) {
+      state.fulfillmentMode = mode;
+      showToast(`Mode basculé sur : ${mode === 'auto' ? 'AUTOMATIQUE (Full API)' : 'MANUEL (Validation Admin)'}`, 'info');
+      renderAdminContent();
+      renderApp();
+    }
+
+    function adminApproveOrder(orderId) {
+      const order = state.orders.find(o => o.id === orderId);
+      if (!order) return;
+      if (order.status === 'delivered') {
+        showToast('Cette commande est déjà livrée.', 'info');
+        return;
+      }
+      const prod = state.products.find(p => p.id === order.productId) || { category: order.category };
+      const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      order.status = 'delivered';
+      order.deliveryPayload = generateDeliveryPayload(prod, order.targetInput);
+      order.logs.push(`${nowTime} — Validé & Exécuté manuellement par Admin. Livré au client.`);
+      state.adminBalances.meruVccUsd = Math.max(0, state.adminBalances.meruVccUsd - order.usdAmount);
+
+      showToast(`Commande #${order.id} validée et livrée au client !`, 'success');
+      updateBottomNavUI();
+      renderAdminContent();
+    }
+
+    function adminRetryApi(orderId) {
+      const order = state.orders.find(o => o.id === orderId);
+      if (!order) return;
+      const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      order.logs.push(`${nowTime} — Relance API fournisseur déclenchée par Admin (HTTP 200 OK).`);
+      if (order.status !== 'delivered') {
+        const prod = state.products.find(p => p.id === order.productId) || { category: order.category };
+        order.status = 'delivered';
+        order.deliveryPayload = generateDeliveryPayload(prod, order.targetInput);
+      }
+      showToast(`API relancée avec succès pour #${order.id}`, 'info');
+      updateBottomNavUI();
+      renderAdminContent();
+    }
+
+    function adminCancelRefund(orderId) {
+      const order = state.orders.find(o => o.id === orderId);
+      if (!order || order.status === 'cancelled') return;
+      const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      order.status = 'cancelled';
+      order.logs.push(`${nowTime} — Commande annulée par Admin. Remboursement crédité au client.`);
+
+      // Rembourser le portefeuille client
+      if (order.gateway === 'MonCash') state.wallets.moncash += order.htgAmount;
+      else if (order.gateway === 'NatCash') state.wallets.natcash += order.htgAmount;
+      else state.wallets.binance = Number((state.wallets.binance + order.usdAmount).toFixed(2));
+
+      showToast(`Commande #${order.id} annulée et client remboursé.`, 'warning');
+      updateBottomNavUI();
+      renderAdminContent();
+    }
+
+    function adminAddProduct() {
+      const cat = document.getElementById('new-prod-cat').value;
+      const title = document.getElementById('new-prod-title').value.trim();
+      const sub = document.getElementById('new-prod-sub').value.trim() || 'Service digital vérifié • Livraison rapide';
+      const usd = parseFloat(document.getElementById('new-prod-usd').value);
+      const badge = document.getElementById('new-prod-badge').value;
+
+      if (!title || !usd || usd <= 0) {
+        showToast('Veuillez indiquer un titre et un prix USD valide.', 'warning');
+        return;
+      }
+
+      const catObj = state.categories.find(c => c.id === cat);
+      const newId = 'custom-' + Date.now();
+      state.products.unshift({
+        id: newId,
+        category: cat,
+        tag: catObj ? catObj.label.toUpperCase() : 'NOUVEAU',
+        tagIcon: catObj ? catObj.icon : '✨',
+        badge: badge,
+        title: title,
+        subtitle: sub,
+        usdPrice: usd,
+        stock: 100,
+        inputType: 'email',
+        inputLabel: 'Email ou Identifiant de livraison',
+        inputPlaceholder: 'client@email.com / +509...'
+      });
+
+      state.activeStoreCategory = cat;
+      state.selectedProductId = newId;
+      showToast(`"${title}" ajouté au catalogue Store !`, 'success');
+      closeAdminModal();
+    }
+
+    // =========================================================================
+    // 10. DRAWER & NOTIFICATIONS
+    // =========================================================================
+    function toggleDrawer() {
+      const drawer = document.getElementById('side-drawer');
+      document.getElementById('drawer-moncash').textContent = `${state.wallets.moncash.toLocaleString('en-US')} HTG`;
+      document.getElementById('drawer-natcash').textContent = `${state.wallets.natcash.toLocaleString('en-US')} HTG`;
+      document.getElementById('drawer-usd').textContent = `$${(state.wallets.binance + state.wallets.crypto).toFixed(2)} USD`;
+      drawer.classList.toggle('hidden');
+    }
+
+    function showNotifications() {
+      const unread = state.notifications[0];
+      showToast(`${unread.title} : ${unread.desc}`, 'info');
+      document.getElementById('notif-badge').classList.add('hidden');
+    }
+
+    // =========================================================================
+    // 11. RENDU PRINCIPAL & INITIALISATION
+    // =========================================================================
+    function renderApp() {
+      const main = document.getElementById('main-content');
+      if (state.activeBottomTab === 'store') {
+        main.innerHTML = renderStoreView();
+      } else if (state.activeBottomTab === 'orders') {
+        main.innerHTML = renderOrdersTabView();
+      } else if (state.activeBottomTab === 'deposit') {
+        main.innerHTML = renderDepositView();
+      } else if (state.activeBottomTab === 'exchange') {
+        main.innerHTML = renderExchangeView();
+      } else if (state.activeBottomTab === 'security') {
+        main.innerHTML = renderSecurityView();
+      }
+      updateBottomNavUI();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderApp();
+    });
+  </script>
+</body>
+</html>

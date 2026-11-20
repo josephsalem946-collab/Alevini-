@@ -75,6 +75,69 @@ object ExchangeCalculator {
         )
     }
 
+    fun computeTopUp(
+        config: ExchangeConfig,
+        gatewayMethod: PaymentMethod,
+        amount: Double,
+    ): ValidationResult {
+        if (amount <= 0.0 || amount.isNaN() || amount.isInfinite()) {
+            return ValidationResult.Invalid("Entrez un montant de recharge valide supérieur à 0.")
+        }
+        val nativeCurrency = gatewayMethod.defaultCurrency
+        val grossUsd = if (nativeCurrency == CurrencyCode.HTG) {
+            amount / config.usdToHtgSell
+        } else {
+            amount
+        }
+        if (grossUsd < config.minOrderUsd || grossUsd > config.maxOrderUsd) {
+            return ValidationResult.Invalid(
+                "Le montant doit être entre ${format2(config.minOrderUsd)} USD et ${format2(config.maxOrderUsd)} USD."
+            )
+        }
+        val feePercent = config.feeFor(gatewayMethod)
+        val netFactor = (1.0 - feePercent / 100.0).coerceAtLeast(0.0)
+        val netCredit = amount * netFactor
+        val netUsd = grossUsd * netFactor
+        return ValidationResult.Valid(
+            ExchangeCalculation(
+                grossUsd = roundN(grossUsd, 4),
+                netUsd = roundN(netUsd, 4),
+                amountHtg = roundN(netUsd * config.usdToHtgSell, 2),
+                amountEur = roundN(netUsd / config.eurToUsd, 4),
+                receiveAmount = roundN(netCredit, 2),
+                baseRate = 1.0,
+                feePercent = roundN(feePercent, 2),
+                effectiveRate = roundN(netFactor, 6),
+            )
+        )
+    }
+
+    fun requiredGatewayDebit(
+        config: ExchangeConfig,
+        sendMethod: PaymentMethod,
+        sendCurrency: CurrencyCode,
+        sendAmount: Double,
+    ): Double {
+        if (sendAmount <= 0.0 || sendAmount.isNaN() || sendAmount.isInfinite()) return 0.0
+        val grossUsd = when (sendCurrency) {
+            CurrencyCode.USD -> sendAmount
+            CurrencyCode.HTG -> sendAmount / config.usdToHtgSell
+            CurrencyCode.EUR -> sendAmount * config.eurToUsd
+        }
+        return when (sendMethod.defaultCurrency) {
+            CurrencyCode.HTG -> if (sendCurrency == CurrencyCode.HTG) roundN(sendAmount, 2) else roundN(grossUsd * config.usdToHtgSell, 2)
+            CurrencyCode.USD, CurrencyCode.EUR -> roundN(grossUsd, 2)
+        }
+    }
+
+    fun balanceFieldFor(method: PaymentMethod): String = when (method) {
+        PaymentMethod.MONCASH -> "balanceMoncashHtg"
+        PaymentMethod.NATCASH -> "balanceNatcashHtg"
+        PaymentMethod.BINANCE -> "balanceBinanceUsd"
+        PaymentMethod.MERU -> "balanceMeruUsd"
+        PaymentMethod.NOWPAYMENTS -> "balanceNowpaymentsUsd"
+    }
+
     fun buildPaymentInstruction(
         config: ExchangeConfig,
         sendMethod: PaymentMethod,

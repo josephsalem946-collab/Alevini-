@@ -5,17 +5,24 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.domain.AppLanguage
 import com.example.data.domain.ExchangeCalculator
+import com.example.data.domain.PinSecurityHelper
 import com.example.data.model.AdminNotification
 import com.example.data.model.CryptoCoin
 import com.example.data.model.CurrencyCode
 import com.example.data.model.ExchangeCalculation
 import com.example.data.model.ExchangeConfig
 import com.example.data.model.ExchangeOrder
+import com.example.data.model.GatewayWalletItem
 import com.example.data.model.LedgerEntry
 import com.example.data.model.OrderStatus
 import com.example.data.model.PaymentMethod
+import com.example.data.model.PaymentSession
 import com.example.data.model.UserProfile
+import com.example.data.model.WebhookEvent
+import com.example.data.remote.PaymentGatewayClient
 import com.example.data.repository.AleviniRepository
+import com.example.data.repository.PinSecurityState
+import com.example.data.repository.PinVerifyResult
 import com.example.data.repository.SecurityPreferencesRepository
 import com.google.firebase.firestore.FirebaseFirestoreException
 import java.text.SimpleDateFormat
@@ -30,6 +37,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -68,13 +76,22 @@ data class AppNotification(
 )
 
 data class WalletSummary(
-    val netBalanceUsd: Double = 0.0,
-    val netBalanceHtg: Double = 0.0,
-    val totalDepositsUsd: Double = 0.0,
-    val totalWithdrawalsUsd: Double = 0.0,
+    val gateways: List<GatewayWalletItem> = PaymentMethod.entries.map { method ->
+        GatewayWalletItem(
+            method = method,
+            balance = 0.0,
+            currency = method.defaultCurrency,
+            feePercent = 0.0,
+            totalTopUps = 0.0,
+            totalSpent = 0.0,
+        )
+    },
     val pendingOrdersCount: Int = 0,
     val completedOrdersCount: Int = 0,
-)
+) {
+    fun gatewayFor(method: PaymentMethod): GatewayWalletItem? =
+        gateways.firstOrNull { it.method == method }
+}
 
 class AleviniViewModel(
     private val repository: AleviniRepository,
@@ -83,6 +100,7 @@ class AleviniViewModel(
     val currentUserEmail: String,
     val currentUserName: String,
     isEmailVerified: Boolean,
+    private val gatewayClient: PaymentGatewayClient = PaymentGatewayClient(),
 ) : ViewModel() {
 
     val isAdmin: Boolean =
@@ -202,6 +220,46 @@ class AleviniViewModel(
         )
     }
 
+    val adminPaymentSessionsState: StateFlow<UiState<List<PaymentSession>>> = if (isAdmin) {
+        repository.observeAllPaymentSessions()
+            .map<List<PaymentSession>, UiState<List<PaymentSession>>> { UiState.Success(it) }
+            .catch { error ->
+                val msg = unwrapAndLog(error, "admin_payment_sessions")
+                emit(UiState.Error(msg))
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+                initialValue = UiState.Loading,
+            )
+    } else {
+        flowOf(UiState.Success(emptyList<PaymentSession>())).stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = UiState.Success(emptyList()),
+        )
+    }
+
+    val adminWebhookEventsState: StateFlow<UiState<List<WebhookEvent>>> = if (isAdmin) {
+        repository.observeWebhookEvents()
+            .map<List<WebhookEvent>, UiState<List<WebhookEvent>>> { UiState.Success(it) }
+            .catch { error ->
+                val msg = unwrapAndLog(error, "admin_webhook_events")
+                emit(UiState.Error(msg))
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+                initialValue = UiState.Loading,
+            )
+    } else {
+        flowOf(UiState.Success(emptyList<WebhookEvent>())).stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = UiState.Success(emptyList()),
+        )
+    }
+
     private val userAdminNotificationsFlow = repository.observeUserAdminNotifications(currentUserId)
         .catch { error ->
             unwrapAndLog(error, "user_admin_notifications")
@@ -214,6 +272,36 @@ class AleviniViewModel(
             started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
             initialValue = false,
         )
+
+    val isDataSaverEnabled: StateFlow<Boolean> = securityPrefs.isDataSaverEnabled
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = false,
+        )
+
+    val pinSecurityState: StateFlow<PinSecurityState> = securityPrefs.pinSecurityState
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = PinSecurityState(),
+        )
+
+    init {
+        viewModelScope.launch {
+            if (currentUserEmail.isNotBlank()) {
+                securityPrefs.setRecoveryEmailIfBlank(currentUserEmail)
+            }
+        }
+        viewModelScope.launch {
+            exchangeConfig
+                .map { it.backendBaseUrl.trim() }
+                .distinctUntilChanged()
+                .collect { url ->
+                    securityPrefs.setCachedBackendUrl(url)
+                }
+        }
+    }
 
     val checkedSecurityItems: StateFlow<Set<String>> = securityPrefs.checkedSecurityItems
         .stateIn(
@@ -236,13 +324,22 @@ class AleviniViewModel(
             initialValue = "fr",
         )
 
+    val dismissedOrderIds: StateFlow<Set<String>> = securityPrefs.dismissedOrderIds
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = emptySet(),
+        )
+
     val notifications: StateFlow<List<AppNotification>> = combine(
         userAdminNotificationsFlow,
         ordersState,
         securityPrefs.dismissedNotificationIds,
-    ) { adminNotifs, state, dismissed ->
+        isDataSaverEnabled,
+    ) { adminNotifs, state, dismissed, dataSaver ->
         val raw = buildList {
-            adminNotifs.forEach { n ->
+            val notifLimit = if (dataSaver) 8 else 25
+            adminNotifs.take(notifLimit).forEach { n ->
                 val dateLabel = n.createdAt?.toDate()?.let {
                     SimpleDateFormat("dd MMM HH:mm", Locale.FRENCH).format(it)
                 } ?: "Admin"
@@ -257,18 +354,24 @@ class AleviniViewModel(
                 )
             }
             val orders = (state as? UiState.Success)?.data.orEmpty()
-            orders.take(25).forEach { order ->
+            orders.take(notifLimit).forEach { order ->
                 val status = OrderStatus.fromString(order.status)
                 val dateLabel = order.updatedAt?.toDate()?.let {
                     SimpleDateFormat("dd MMM HH:mm", Locale.FRENCH).format(it)
                 } ?: "Récent"
                 val sendLabel = PaymentMethod.fromId(order.sendMethod).label
                 val receiveLabel = PaymentMethod.fromId(order.receiveMethod).label
+                val isTopUp = order.orderType == "TOPUP" || order.sendMethod == order.receiveMethod
+                val routeTitle = if (isTopUp) "Recharge $sendLabel" else "$sendLabel → $receiveLabel"
                 val msg = when (status) {
-                    OrderStatus.PENDING -> "Ordre ${order.orderCode} ($sendLabel → $receiveLabel) en attente de preuve."
+                    OrderStatus.PENDING -> "Ordre ${order.orderCode} ($routeTitle) en attente de validation."
                     OrderStatus.SUBMITTED -> "Preuve soumise pour ${order.orderCode}. Validation admin en cours."
-                    OrderStatus.PAID_IN -> "Fonds reçus pour ${order.orderCode}. Transfert sortant imminent."
-                    OrderStatus.COMPLETED -> "Ordre ${order.orderCode} complété ! ${String.format(Locale.US, "%.2f", order.receiveAmount)} ${order.receiveCurrency} envoyé."
+                    OrderStatus.PAID_IN -> "Fonds reçus pour ${order.orderCode}. Traitement imminent."
+                    OrderStatus.COMPLETED -> if (isTopUp) {
+                        "Recharge ${order.orderCode} créditée ! +${String.format(Locale.US, "%.2f", order.receiveAmount)} ${order.receiveCurrency} sur $sendLabel."
+                    } else {
+                        "Ordre ${order.orderCode} complété ! ${String.format(Locale.US, "%.2f", order.receiveAmount)} ${order.receiveCurrency} envoyé."
+                    }
                     OrderStatus.REJECTED -> "Ordre ${order.orderCode} refusé. Vérifiez la note admin ou contactez le support."
                     OrderStatus.UNDERPAID -> "Ordre ${order.orderCode} sous-payé. Contactez supportdisponible@gmail.com."
                     OrderStatus.EXPIRED -> "Le verrou de 15 min pour ${order.orderCode} a expiré."
@@ -288,7 +391,7 @@ class AleviniViewModel(
                 AppNotification(
                     id = "welcome_alevini_security",
                     title = "Bienvenue sur Alevini",
-                    message = "Vos taux sont verrouillés 15 minutes à chaque ordre. Activez la biométrie dans Sécurité.",
+                    message = "Rechargez d'abord votre passerelle dédiée (MonCash, NatCash, Binance Pay, Meru ou NOWPayments) avant d'échanger ou commander.",
                     timeLabel = "Système",
                     isAlert = false,
                 )
@@ -302,14 +405,16 @@ class AleviniViewModel(
     )
 
     val walletSummary: StateFlow<WalletSummary> = combine(
+        userProfile,
         ordersState,
         exchangeConfig,
-    ) { state, cfg ->
+    ) { profile, state, cfg ->
         val orders = (state as? UiState.Success)?.data.orEmpty()
-        var depositsUsd = 0.0
-        var withdrawalsUsd = 0.0
         var pendingCount = 0
         var completedCount = 0
+        val topUpByMethod = mutableMapOf<PaymentMethod, Double>()
+        val spentByMethod = mutableMapOf<PaymentMethod, Double>()
+
         orders.forEach { order ->
             val st = OrderStatus.fromString(order.status)
             if (st == OrderStatus.PENDING || st == OrderStatus.SUBMITTED || st == OrderStatus.PAID_IN) {
@@ -317,20 +422,41 @@ class AleviniViewModel(
             }
             if (st == OrderStatus.COMPLETED) {
                 completedCount++
-                val sendIsLocal = order.sendMethod == PaymentMethod.MONCASH.id || order.sendMethod == PaymentMethod.NATCASH.id
-                if (sendIsLocal) {
-                    depositsUsd += order.amountUsd
-                } else {
-                    withdrawalsUsd += order.amountUsd
-                }
+            }
+            val method = PaymentMethod.fromId(order.sendMethod)
+            val isTopUp = order.orderType == "TOPUP" || order.sendMethod == order.receiveMethod
+            if (isTopUp && st == OrderStatus.COMPLETED) {
+                topUpByMethod[method] = (topUpByMethod[method] ?: 0.0) + order.receiveAmount
+            } else if (!isTopUp && st != OrderStatus.REJECTED && st != OrderStatus.EXPIRED && order.gatewayMode == "WALLET") {
+                val debit = ExchangeCalculator.requiredGatewayDebit(
+                    config = cfg,
+                    sendMethod = method,
+                    sendCurrency = CurrencyCode.fromCode(order.sendCurrency),
+                    sendAmount = order.sendAmount,
+                )
+                spentByMethod[method] = (spentByMethod[method] ?: 0.0) + debit
             }
         }
-        val netUsd = (depositsUsd - withdrawalsUsd).coerceAtLeast(0.0)
+
+        val gateways = listOf(
+            PaymentMethod.MONCASH,
+            PaymentMethod.NATCASH,
+            PaymentMethod.BINANCE,
+            PaymentMethod.MERU,
+            PaymentMethod.NOWPAYMENTS,
+        ).map { method ->
+            GatewayWalletItem(
+                method = method,
+                balance = profile?.balanceFor(method) ?: 0.0,
+                currency = method.defaultCurrency,
+                feePercent = cfg.feeFor(method),
+                totalTopUps = topUpByMethod[method] ?: 0.0,
+                totalSpent = spentByMethod[method] ?: 0.0,
+            )
+        }
+
         WalletSummary(
-            netBalanceUsd = netUsd,
-            netBalanceHtg = netUsd * cfg.usdToHtgSell,
-            totalDepositsUsd = depositsUsd,
-            totalWithdrawalsUsd = withdrawalsUsd,
+            gateways = gateways,
             pendingOrdersCount = pendingCount,
             completedOrdersCount = completedCount,
         )
@@ -367,6 +493,12 @@ class AleviniViewModel(
 
     private val _selectedOrder = MutableStateFlow<ExchangeOrder?>(null)
     val selectedOrder: StateFlow<ExchangeOrder?> = _selectedOrder.asStateFlow()
+
+    private val _preselectedDepositMethod = MutableStateFlow<PaymentMethod?>(null)
+    val preselectedDepositMethod: StateFlow<PaymentMethod?> = _preselectedDepositMethod.asStateFlow()
+
+    private val _isGatewayBusy = MutableStateFlow(false)
+    val isGatewayBusy: StateFlow<Boolean> = _isGatewayBusy.asStateFlow()
 
     private val _snackbarEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val snackbarEvents: SharedFlow<String> = _snackbarEvents.asSharedFlow()
@@ -511,6 +643,140 @@ class AleviniViewModel(
         }
     }
 
+    fun createWizardTopUpOrder(
+        gatewayMethod: PaymentMethod,
+        cryptoCoin: CryptoCoin?,
+        amount: Double,
+        onCreated: (ExchangeOrder) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        if (userProfile.value?.isBlocked == true) {
+            val msg = "Compte suspendu. Contactez le support Alevini."
+            _snackbarEvents.tryEmit(msg)
+            onError(msg)
+            return
+        }
+        viewModelScope.launch {
+            _calculatorState.update { it.copy(isSubmittingOrder = true) }
+            val result = repository.createTopUpOrder(
+                config = exchangeConfig.value,
+                userEmail = currentUserEmail,
+                gatewayMethod = gatewayMethod,
+                cryptoCoin = if (gatewayMethod == PaymentMethod.NOWPAYMENTS) cryptoCoin else null,
+                amount = amount,
+            )
+            _calculatorState.update { it.copy(isSubmittingOrder = false) }
+            result.onSuccess { order ->
+                _snackbarEvents.tryEmit("Recharge ${order.orderCode} (${gatewayMethod.label}) prête !")
+                onCreated(order)
+            }.onFailure { err ->
+                val msg = err.message ?: "Impossible d'initialiser la recharge."
+                _snackbarEvents.tryEmit(msg)
+                onError(msg)
+            }
+        }
+    }
+
+    fun selectDepositGatewayPreset(method: PaymentMethod) {
+        _preselectedDepositMethod.value = method
+    }
+
+    fun clearPreselectedDepositMethod() {
+        _preselectedDepositMethod.value = null
+    }
+
+    fun initiateOnlineGatewayPayment(
+        order: ExchangeOrder,
+        onSessionReady: (ExchangeOrder) -> Unit = {},
+    ) {
+        val cfg = exchangeConfig.value
+        val method = PaymentMethod.fromId(order.sendMethod)
+        if (!method.supportsOnlineApi || !cfg.isOnlineEnabledFor(method)) {
+            _snackbarEvents.tryEmit("La passerelle en ligne ${method.label} est désactivée.")
+            return
+        }
+        val backendUrl = cfg.backendBaseUrl.trim()
+        if (backendUrl.isBlank()) {
+            _snackbarEvents.tryEmit(
+                "Serveur API non encore connecté : utilisez le paiement direct ou configurez l'URL HTTPS dans Admin > Passerelles API."
+            )
+            return
+        }
+        viewModelScope.launch {
+            _isGatewayBusy.value = true
+            try {
+                val idToken = repository.getFreshIdToken()
+                if (idToken.isNullOrBlank()) {
+                    _snackbarEvents.tryEmit("Session Google expirée. Veuillez vous reconnecter.")
+                    return@launch
+                }
+                val result = gatewayClient.initiateOnlinePayment(
+                    backendBaseUrl = backendUrl,
+                    firebaseIdToken = idToken,
+                    orderId = order.id,
+                    provider = method,
+                )
+                result.onSuccess { res ->
+                    repository.attachOnlineCheckoutSession(
+                        order = order,
+                        gatewayMode = res.mode,
+                        gatewayOrderId = res.gatewayOrderId,
+                        checkoutUrl = res.checkoutUrl,
+                        payAddress = res.payAddress.ifBlank { order.payAddress },
+                        payCryptoAmount = if (res.payCryptoAmount > 0.0) res.payCryptoAmount else order.payCryptoAmount,
+                    )
+                    val updated = order.copy(
+                        gatewayMode = "ONLINE",
+                        gatewayOrderId = res.gatewayOrderId,
+                        checkoutUrl = res.checkoutUrl,
+                        gatewayStatus = "WAITING_WEBHOOK",
+                        payAddress = res.payAddress.ifBlank { order.payAddress },
+                        payCryptoAmount = if (res.payCryptoAmount > 0.0) res.payCryptoAmount else order.payCryptoAmount,
+                    )
+                    if (_selectedOrder.value?.id == order.id) {
+                        _selectedOrder.value = updated
+                    }
+                    onSessionReady(updated)
+                    _snackbarEvents.tryEmit("Portail ${method.label} sécurisé prêt !")
+                }.onFailure { err ->
+                    _snackbarEvents.tryEmit(err.message ?: "Impossible d'initialiser ${method.label} en ligne.")
+                }
+            } finally {
+                _isGatewayBusy.value = false
+            }
+        }
+    }
+
+    fun verifyOnlinePaymentStatus(order: ExchangeOrder) {
+        val backendUrl = exchangeConfig.value.backendBaseUrl.trim()
+        if (backendUrl.isBlank()) {
+            _snackbarEvents.tryEmit("URL Backend non configurée dans Admin > Passerelles API.")
+            return
+        }
+        viewModelScope.launch {
+            _isGatewayBusy.value = true
+            try {
+                val idToken = repository.getFreshIdToken()
+                if (idToken.isNullOrBlank()) {
+                    _snackbarEvents.tryEmit("Session Google expirée.")
+                    return@launch
+                }
+                val result = gatewayClient.checkPaymentStatus(
+                    backendBaseUrl = backendUrl,
+                    firebaseIdToken = idToken,
+                    orderId = order.id,
+                )
+                result.onSuccess { st ->
+                    _snackbarEvents.tryEmit("Statut API : ${st.status} (${st.gatewayStatus})")
+                }.onFailure { err ->
+                    _snackbarEvents.tryEmit(err.message ?: "Échec de vérification du statut.")
+                }
+            } finally {
+                _isGatewayBusy.value = false
+            }
+        }
+    }
+
     fun updateProfile(displayName: String, phoneNumber: String, isAgeVerified: Boolean) {
         viewModelScope.launch {
             val result = repository.updateUserProfile(
@@ -532,6 +798,80 @@ class AleviniViewModel(
             securityPrefs.setBiometricLockEnabled(enabled)
             _snackbarEvents.tryEmit(
                 if (enabled) "Verrouillage biométrique activé." else "Verrouillage biométrique désactivé."
+            )
+        }
+    }
+
+    fun setDataSaverEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            securityPrefs.setDataSaverEnabled(enabled)
+            _snackbarEvents.tryEmit(
+                if (enabled) {
+                    "Mode Économie de Données activé : cache hors-ligne prioritaire & flux réduits."
+                } else {
+                    "Mode Économie de Données désactivé."
+                }
+            )
+        }
+    }
+
+    fun setPinLockEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            if (enabled && !pinSecurityState.value.isPinConfigured) {
+                _snackbarEvents.tryEmit("Définissez d'abord un code PIN à 4 chiffres.")
+                return@launch
+            }
+            securityPrefs.setPinEnabled(enabled)
+            _snackbarEvents.tryEmit(
+                if (enabled) "Code PIN à l'ouverture activé." else "Code PIN à l'ouverture désactivé."
+            )
+        }
+    }
+
+    fun updatePinCode(
+        currentPin: String,
+        newPin: String,
+        onResult: (Boolean, String) -> Unit = { _, _ -> },
+    ) {
+        if (!PinSecurityHelper.isValidPinFormat(newPin)) {
+            onResult(false, "Le nouveau code PIN doit contenir exactement 4 chiffres.")
+            return
+        }
+        viewModelScope.launch {
+            if (pinSecurityState.value.isPinConfigured) {
+                when (val verify = securityPrefs.verifyPin(currentPin)) {
+                    PinVerifyResult.Success, PinVerifyResult.NotConfigured -> Unit
+                    is PinVerifyResult.Incorrect -> {
+                        onResult(false, "Code PIN actuel incorrect (${verify.remainingAttempts} essai(s) restant(s)).")
+                        return@launch
+                    }
+                    is PinVerifyResult.LockedOut -> {
+                        onResult(false, "Trop de tentatives erronées. Réessayez dans un instant.")
+                        return@launch
+                    }
+                }
+            }
+            val ok = securityPrefs.saveNewPin(newPin)
+            if (ok) {
+                _snackbarEvents.tryEmit("Code PIN à 4 chiffres enregistré.")
+                onResult(true, "Code PIN enregistré.")
+            } else {
+                onResult(false, "Impossible d'enregistrer le code PIN.")
+            }
+        }
+    }
+
+    fun updateRecoveryEmail(email: String) {
+        val trimmed = email.trim()
+        if (trimmed.isNotEmpty() && !PinSecurityHelper.isValidEmailFormat(trimmed)) {
+            _snackbarEvents.tryEmit("Adresse e-mail invalide.")
+            return
+        }
+        viewModelScope.launch {
+            securityPrefs.setRecoveryEmail(trimmed)
+            _snackbarEvents.tryEmit(
+                if (trimmed.isEmpty()) "E-mail de récupération effacé (Non renseigné)."
+                else "E-mail de récupération enregistré."
             )
         }
     }
@@ -578,24 +918,19 @@ class AleviniViewModel(
         }
     }
 
-    fun startDepositPreset() {
-        _calculatorState.update {
-            it.copy(
-                sendMethod = PaymentMethod.MONCASH,
-                receiveMethod = PaymentMethod.BINANCE,
-                sendCurrency = CurrencyCode.HTG,
-                receiveCurrency = CurrencyCode.USD,
-            )
-        }
+    fun startDepositPreset(method: PaymentMethod = PaymentMethod.MONCASH) {
+        _preselectedDepositMethod.value = method
     }
 
-    fun startWithdrawPreset() {
+    fun startWithdrawPreset(receiveMethod: PaymentMethod = PaymentMethod.MONCASH) {
+        val sendMethod = if (receiveMethod == PaymentMethod.BINANCE) PaymentMethod.NOWPAYMENTS else PaymentMethod.BINANCE
+        val receiveCurr = if (receiveMethod.supportsHtg) CurrencyCode.HTG else CurrencyCode.USD
         _calculatorState.update {
             it.copy(
-                sendMethod = PaymentMethod.BINANCE,
-                receiveMethod = PaymentMethod.MONCASH,
+                sendMethod = sendMethod,
+                receiveMethod = receiveMethod,
                 sendCurrency = CurrencyCode.USD,
-                receiveCurrency = CurrencyCode.HTG,
+                receiveCurrency = receiveCurr,
             )
         }
     }
@@ -603,6 +938,52 @@ class AleviniViewModel(
     fun openOrderById(orderId: String) {
         val list = (ordersState.value as? UiState.Success)?.data.orEmpty()
         list.firstOrNull { it.id == orderId }?.let { _selectedOrder.value = it }
+    }
+
+    fun deleteOrHideUserOrder(order: ExchangeOrder) {
+        viewModelScope.launch {
+            val isRemovableInDb =
+                order.status == OrderStatus.PENDING.name || order.status == OrderStatus.EXPIRED.name
+            if (isRemovableInDb) {
+                val result = repository.deletePendingOrExpiredOrder(order.id)
+                result.onSuccess {
+                    if (_selectedOrder.value?.id == order.id) {
+                        _selectedOrder.value = null
+                    }
+                    _snackbarEvents.tryEmit("Transaction ${order.orderCode} supprimée.")
+                }.onFailure {
+                    // Fallback to local archive if status transitioned concurrently
+                    securityPrefs.dismissHistoryOrder(order.id)
+                    _snackbarEvents.tryEmit("Transaction ${order.orderCode} retirée de votre historique.")
+                }
+            } else {
+                securityPrefs.dismissHistoryOrder(order.id)
+                if (_selectedOrder.value?.id == order.id) {
+                    _selectedOrder.value = null
+                }
+                _snackbarEvents.tryEmit("Transaction ${order.orderCode} retirée de votre historique.")
+            }
+        }
+    }
+
+    fun deleteCompletedUserOrders(orders: List<ExchangeOrder>) {
+        val completedIds = orders
+            .filter { it.status == OrderStatus.COMPLETED.name }
+            .map { it.id }
+            .toSet()
+        if (completedIds.isEmpty()) return
+        viewModelScope.launch {
+            securityPrefs.dismissHistoryOrders(completedIds)
+            if (_selectedOrder.value?.id in completedIds) {
+                _selectedOrder.value = null
+            }
+            val msg = if (completedIds.size == 1) {
+                "1 ordre complété retiré de votre historique."
+            } else {
+                "${completedIds.size} ordres complétés retirés de votre historique."
+            }
+            _snackbarEvents.tryEmit(msg)
+        }
     }
 
     // --- ADMIN ACTIONS ---
@@ -639,6 +1020,18 @@ class AleviniViewModel(
                 _snackbarEvents.tryEmit("Statut mis à jour : ${status.label}")
             }.onFailure { err ->
                 _snackbarEvents.tryEmit(err.message ?: "Erreur de mise à jour.")
+            }
+        }
+    }
+
+    fun adminAdjustGatewayBalance(userId: String, method: PaymentMethod, newBalance: Double) {
+        if (!isAdmin) return
+        viewModelScope.launch {
+            val result = repository.adminAdjustGatewayBalance(userId, method, newBalance)
+            result.onSuccess {
+                _snackbarEvents.tryEmit("Solde ${method.label} ajusté (${String.format(Locale.US, "%.2f", newBalance)} ${method.defaultCurrency.code}).")
+            }.onFailure { err ->
+                _snackbarEvents.tryEmit(err.message ?: "Erreur lors de l'ajustement du solde.")
             }
         }
     }
@@ -725,6 +1118,30 @@ class AleviniViewModel(
                 _snackbarEvents.tryEmit("Écriture comptable supprimée.")
             }.onFailure { err ->
                 _snackbarEvents.tryEmit(err.message ?: "Impossible de supprimer l'écriture.")
+            }
+        }
+    }
+
+    fun adminDeletePaymentSession(sessionId: String) {
+        if (!isAdmin) return
+        viewModelScope.launch {
+            val result = repository.deletePaymentSession(sessionId)
+            result.onSuccess {
+                _snackbarEvents.tryEmit("Session API supprimée.")
+            }.onFailure { err ->
+                _snackbarEvents.tryEmit(err.message ?: "Impossible de supprimer la session.")
+            }
+        }
+    }
+
+    fun adminDeleteWebhookEvent(eventId: String) {
+        if (!isAdmin) return
+        viewModelScope.launch {
+            val result = repository.deleteWebhookEvent(eventId)
+            result.onSuccess {
+                _snackbarEvents.tryEmit("Événement webhook supprimé.")
+            }.onFailure { err ->
+                _snackbarEvents.tryEmit(err.message ?: "Impossible de supprimer l'événement.")
             }
         }
     }

@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.alevini.jhsxpk"
     minSdk = 24
     targetSdk = 36
-    versionCode = 3
-    versionName = "3.0"
+    versionCode = 17
+    versionName = "17.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -68,6 +68,22 @@ android {
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
+  }
+  splits {
+    abi {
+      isEnable = false
+    }
+  }
+  bundle {
+    language {
+      enableSplit = false
+    }
+    density {
+      enableSplit = false
+    }
+    abi {
+      enableSplit = false
+    }
   }
 }
 
@@ -120,7 +136,8 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   // implementation(libs.logging.interceptor)
   // implementation(libs.moshi.kotlin)
-  // implementation(libs.okhttp)
+  implementation(libs.okhttp)
+  implementation(libs.zxing.core)
   // implementation(libs.play.services.location)
   // implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
